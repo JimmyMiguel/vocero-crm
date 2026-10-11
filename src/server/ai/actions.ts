@@ -47,16 +47,31 @@ const agendaActions = [
   }),
 ] as const;
 
+/**
+ * Catálogo (automatizate.ec): enviar la foto de un producto con un texto. Solo
+ * se registra si la organización tiene productos.
+ */
+const catalogActions = [
+  z.object({
+    action: z.literal("send_product"),
+    product: z.string().min(1),
+    caption: z.string().optional(),
+  }),
+] as const;
+
 export const AgentAction = z.discriminatedUnion("action", [
   ...baseActions,
   ...agendaActions,
+  ...catalogActions,
 ]);
 
 /** El esquema que se le exige al modelo en ESTE turno. */
-export function agentActionSchema(agenda: boolean) {
-  return agenda
-    ? AgentAction
-    : z.discriminatedUnion("action", [...baseActions]);
+export function agentActionSchema(agenda: boolean, catalog = false) {
+  return z.discriminatedUnion("action", [
+    ...baseActions,
+    ...(agenda ? agendaActions : []),
+    ...(catalog ? catalogActions : []),
+  ]);
 }
 
 export type AgentActionType = z.infer<typeof AgentAction>;
@@ -84,6 +99,11 @@ export function degradeAction(action: AgentActionType): AgentActionType {
   ) {
     return action.reply
       ? { action: "reply", text: action.reply }
+      : { action: "none" };
+  }
+  if (action.action === "send_product") {
+    return action.caption
+      ? { action: "reply", text: action.caption }
       : { action: "none" };
   }
   return action;

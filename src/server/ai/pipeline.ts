@@ -8,7 +8,13 @@ import { chatJson, type ChatMessage } from "@/lib/ai";
 import { isAiConfiguredFor } from "@/lib/ai/provider";
 import { publish } from "@/server/events/bus";
 import { isWindowOpen } from "@/server/inbox/window";
-import { SendError, sendText } from "@/server/inbox/send";
+import { SendError, sendMediaMessage, sendText } from "@/server/inbox/send";
+import {
+  getProduct,
+  listProducts,
+  readProductImage,
+  renderCatalog,
+} from "@/server/catalog";
 import {
   agentActionSchema,
   degradeAction,
@@ -162,6 +168,7 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
     .orderBy(asc(schema.pipelineStage.position));
 
   const agenda = agendaEnabled();
+  const catalog = renderCatalog(await listProducts(organizationId));
 
   /**
    * 015 — Los huecos vigentes, con su instante exacto.
@@ -189,7 +196,7 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
   const messages: ChatMessage[] = [
     {
       role: "system",
-      content: buildAgentSystemPrompt({ profile, kb, stages, agenda }),
+      content: buildAgentSystemPrompt({ profile, kb, stages, agenda, catalog }),
     },
     ...history
       .filter((m) => m.text)
@@ -206,7 +213,7 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
       : []),
   ];
 
-  const result = await chatJson(agentActionSchema(agenda), messages, {
+  const result = await chatJson(agentActionSchema(agenda, !!catalog), messages, {
     organizationId,
   });
   if (!result.ok) {
@@ -252,6 +259,19 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
         action = degradeAction(action);
       }
     }
+  }
+
+  if (action.action === "send_product") {
+    const sent = await deliverProduct(
+      conversation,
+      action.product,
+      action.caption
+    ).catch((err) => {
+      console.error(`[agente] no se pudo enviar el producto: ${err}`);
+      return false;
+    });
+    if (sent) return;
+    action = degradeAction(action);
   }
 
   if (action.action === "move_stage") {
@@ -317,6 +337,43 @@ async function deliverReply(
     }
     throw err;
   }
+}
+
+/**
+ * Catálogo — envía la foto del producto con su texto. En el Laboratorio solo
+ * se persiste como texto (jamás toca la API). Devuelve false si el producto no
+ * existe o no tiene foto, para que el turno degrade a texto.
+ */
+async function deliverProduct(
+  conversation: Conversation,
+  productId: string,
+  caption: string | undefined
+): Promise<boolean> {
+  const product = await getProduct(conversation.organizationId, productId.trim());
+  if (!product?.imageAssetId) return false;
+  const text = caption?.trim() || product.name;
+  if (conversation.isTest) {
+    await persistTestOutbound(conversation, `[Foto: ${product.name}] ${text}`);
+    return true;
+  }
+  const file = await readProductImage(conversation.organizationId, product);
+  if (!file) return false;
+  try {
+    await sendMediaMessage({
+      conversationId: conversation.id,
+      organizationId: conversation.organizationId,
+      file,
+      caption: text.slice(0, 1024),
+      aiGenerated: true,
+    });
+  } catch (err) {
+    if (err instanceof SendError && err.code === "window_closed") {
+      await applyHandoff(conversation.id, conversation.organizationId, "ventana");
+      return true;
+    }
+    throw err;
+  }
+  return true;
 }
 
 /**

@@ -5,6 +5,7 @@ import {
   Inbox,
   Kanban,
   ListChecks,
+  Package,
   Settings,
   Sparkles,
   Users,
@@ -72,6 +73,7 @@ export function appNavGroups({
   }
   agente.push(
     { href: "/agent", label: "Agente", icon: Sparkles },
+    { href: "/catalog", label: "Catálogo", icon: Package },
     { href: "/lab", label: "Laboratorio", icon: FlaskConical }
   );
 

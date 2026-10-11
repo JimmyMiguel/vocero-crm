@@ -1184,3 +1184,30 @@ export const dispatch = pgTable(
     index("dispatch_status_notbefore_idx").on(t.status, t.notBefore),
   ]
 );
+
+/**
+ * Catálogo de productos (automatizate.ec). El agente lo recibe en su prompt y
+ * puede enviar la foto de un producto con la acción `send_product`. La foto es
+ * un `media_asset` más, así que se guarda y se sirve igual que los adjuntos.
+ */
+export const product = pgTable(
+  "product",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    /** Texto libre ("$12.50", "desde $8") para no imponer moneda ni formato. */
+    price: text("price"),
+    description: text("description"),
+    /** NULL = no se lleva inventario; 0 = agotado (el agente no lo ofrece). */
+    stock: integer("stock"),
+    imageAssetId: text("image_asset_id").references(() => mediaAsset.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [index("product_org_idx").on(t.organizationId)]
+);

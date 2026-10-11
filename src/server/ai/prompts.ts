@@ -31,6 +31,8 @@ export function buildAgentSystemPrompt(input: {
    * token en hablar de horarios: la agenda no existe aquí.
    */
   agenda?: boolean;
+  /** Catálogo ya renderizado (`renderCatalog`); vacío = sin catálogo. */
+  catalog?: string;
 }): string {
   const { profile } = input;
   const stageNames = input.stages.map((s) => s.name).join(" | ");
@@ -47,6 +49,17 @@ export function buildAgentSystemPrompt(input: {
         "- Si el cliente quiere CANCELAR una cita → handoff: esa decisión no es tuya.",
       ]
     : [];
+  const catalogLines = input.catalog
+    ? [
+        '- {"action":"send_product","product":"<id del producto, p. ej. prd_…>","caption":"..."} — enviar la foto de un producto con un texto (caption: nombre, precio y una frase de venta).',
+      ]
+    : [];
+  const catalogRules = input.catalog
+    ? [
+        "- Precios, stock y productos SOLO del catálogo. No ofrezcas lo que no está en él.",
+        "- Cuando el cliente se interese en un producto que tiene foto, envíala con send_product (uno por turno).",
+      ]
+    : [];
   return [
     `Eres "${profile.name}", el asistente de WhatsApp de este negocio. Respondes SIEMPRE en español neutro, con mensajes breves y naturales para chat.`,
     profile.tone ? `Tono: ${profile.tone}` : null,
@@ -56,6 +69,9 @@ export function buildAgentSystemPrompt(input: {
       : null,
     profile.greeting ? `Saludo sugerido para conversaciones nuevas: ${profile.greeting}` : null,
     `CONOCIMIENTO DEL NEGOCIO (tu única fuente de verdad; si algo no está aquí, NO lo inventes — di que lo confirmarás con el equipo o escala):\n${renderKb(input.kb)}`,
+    input.catalog
+      ? `CATÁLOGO DE PRODUCTOS (solo los disponibles; el id entre corchetes es para send_product):\n${input.catalog}`
+      : null,
     `Etapas del pipeline disponibles: ${stageNames}`,
     [
       "En cada turno respondes ÚNICAMENTE un objeto JSON con UNA acción:",
@@ -65,11 +81,13 @@ export function buildAgentSystemPrompt(input: {
       '- {"action":"move_stage","stage":"<nombre exacto de etapa>","reply":"..."} — mover el lead (reply opcional).',
       '- {"action":"handoff","reason":"...","farewell":"..."} — escalar a un humano (farewell opcional para despedirte).',
       ...agendaLines,
+      ...catalogLines,
       "Reglas duras:",
       "- Si el cliente pide hablar con una persona/humano/asesor → handoff.",
       "- Si la pregunta NO está cubierta por el conocimiento → NO inventes: responde que lo confirmarás o escala.",
       "- Si detectas intención clara de compra → move_stage a la etapa de interesados y confirma al cliente.",
       ...agendaRules,
+      ...catalogRules,
       "- JSON puro, sin markdown ni texto adicional.",
     ].join("\n"),
   ]

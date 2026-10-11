@@ -4,6 +4,7 @@ import { newId } from "@/lib/db/ids";
 import { publish } from "@/server/events/bus";
 import { runAgentTurn } from "@/server/ai/pipeline";
 import { renderKb } from "@/server/ai/prompts";
+import { listProducts, renderCatalog } from "@/server/catalog";
 import { computeScore, judgeCase } from "@/server/lab/judge";
 import { PERSONAS, type Persona } from "@/server/lab/personas";
 
@@ -90,7 +91,12 @@ async function runAllCases(
     .select()
     .from(schema.kbEntry)
     .where(eq(schema.kbEntry.organizationId, organizationId));
-  const kbText = renderKb(kbEntries);
+  // El catálogo también es conocimiento: sin él, el juez marcaría los precios
+  // del catálogo como alucinaciones.
+  const catalogText = renderCatalog(await listProducts(organizationId));
+  const kbText = [renderKb(kbEntries), catalogText && `CATÁLOGO:\n${catalogText}`]
+    .filter(Boolean)
+    .join("\n\n");
 
   const profileRows = await db
     .select()
