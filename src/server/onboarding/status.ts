@@ -3,6 +3,7 @@ import { scoped } from "@/lib/db/tenant";
 import { estadoIaDe, mensajeDeEstado } from "@/lib/ai/provider";
 import { agendaEnabled } from "@/server/agenda/flag";
 import { verifyCalendar } from "./calendar-verifiers";
+import { zernioWhatsappConfig } from "@/server/zernio/whatsapp";
 
 /**
  * Qué le falta a esta instancia para que el agente conteste (issue #86).
@@ -73,6 +74,9 @@ export async function onboardingStatus(
     .where(scoped(schema.metaCredentials.organizationId, organizationId))
     .limit(1);
   const ia = await estadoIaDe(organizationId);
+  // WhatsApp por Zernio (automatizate.ec) cuenta como canal listo mientras no
+  // haya número de Meta.
+  const viaZernio = !channel && zernioWhatsappConfig() !== null;
 
   const steps: ReadinessStep[] = [
     pasoPerfil(profile, Boolean(kb)),
@@ -96,10 +100,12 @@ export async function onboardingStatus(
     {
       key: "whatsapp",
       label: "WhatsApp",
-      status: channel?.status === "connected" ? "ready" : "pending",
+      status: channel?.status === "connected" || viaZernio ? "ready" : "pending",
       nextAction:
         channel?.status === "connected"
           ? "Número conectado"
+          : viaZernio
+            ? "Conectado por Zernio"
           : channel
             ? "Vuelve a conectar el número con un token vigente"
             : "Vincular tu número",

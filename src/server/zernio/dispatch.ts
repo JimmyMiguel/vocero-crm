@@ -5,6 +5,10 @@ import { processZernioEvent } from "@/server/instagram/ingest";
 import { getMessengerCredentialsByAccountRef } from "@/server/messenger/credentials";
 import { processZernioMessengerEvent } from "@/server/messenger/ingest";
 import { parseZernioEvent, type ZernioEvent } from "@/server/zernio";
+import {
+  processZernioWhatsappEvent,
+  zernioWhatsappConfig,
+} from "@/server/zernio/whatsapp";
 
 /**
  * 017 — Reparto de un evento de Zernio al canal que le toca.
@@ -27,6 +31,7 @@ export function zernioTargetChannel(payload: unknown): Channel | null {
   const platform = (evt.account?.platform ?? "").toLowerCase();
   if (platform === "instagram") return "instagram";
   if (platform === "facebook" || platform === "messenger") return "messenger";
+  if (platform === "whatsapp") return "whatsapp";
   return null;
 }
 
@@ -42,6 +47,15 @@ export async function resolveZernioSecret(
   const accountRef = evt?.account?.id ?? null;
   const channel = zernioTargetChannel(evt);
   if (!accountRef) return { secret: null, accountRef: null, channel };
+
+  // WhatsApp por Zernio se configura por entorno, con su propio secreto.
+  if (channel === "whatsapp") {
+    return {
+      secret: zernioWhatsappConfig()?.webhookSecret ?? null,
+      accountRef,
+      channel,
+    };
+  }
 
   const creds =
     channel === "messenger"
@@ -68,6 +82,7 @@ export async function processZernioPayload(payload: unknown): Promise<void> {
     return;
   }
 
-  if (channel === "messenger") await processZernioMessengerEvent(payload);
+  if (channel === "whatsapp") await processZernioWhatsappEvent(payload);
+  else if (channel === "messenger") await processZernioMessengerEvent(payload);
   else await processZernioEvent(payload);
 }

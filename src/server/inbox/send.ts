@@ -36,6 +36,12 @@ import {
   uploadGraphMedia,
   validateOutgoing,
 } from "@/server/whatsapp/media";
+import { sendZernioMessage } from "@/server/zernio";
+import {
+  sendZernioWhatsappAttachment,
+  zernioWhatsappConfig,
+  type ZernioWhatsappConfig,
+} from "@/server/zernio/whatsapp";
 
 /** Error tipado del envío; `code` mapea a HTTP en la capa de API. */
 export class SendError extends Error {
@@ -71,6 +77,8 @@ type SendTarget = {
   instagram?: InstagramCredentials;
   /** 017: presente solo en conversaciones de Messenger. */
   messenger?: MessengerCredentials;
+  /** WhatsApp por Zernio: sin número de Meta conectado (automatizate.ec). */
+  zernioWhatsapp?: { config: ZernioWhatsappConfig; threadRef: string };
 };
 
 /**
@@ -198,6 +206,26 @@ async function prepareSend(
 
   const credentials = await getCredentialsByOrg(organizationId);
   if (!credentials) {
+    // Sin número de Meta, WhatsApp puede ir por Zernio. Se responde en el hilo
+    // de Zernio por el que entró el cliente.
+    const zernio = zernioWhatsappConfig();
+    if (zernio) {
+      const threadRef = row.conversation.channelThreadRef;
+      if (!threadRef) {
+        throw new SendError(
+          "meta_error",
+          "Esta conversación no entró por Zernio: no hay hilo donde responder"
+        );
+      }
+      const recipient = row.contact.phone ?? row.contact.waIdentity;
+      return {
+        conversation: row.conversation,
+        credentials: null,
+        destinatario: { to: recipient },
+        recipient,
+        zernioWhatsapp: { config: zernio, threadRef },
+      };
+    }
     throw new SendError("not_connected", "No hay número de WhatsApp conectado");
   }
   if (credentials.status === "reconnect_required") {
@@ -290,6 +318,27 @@ async function persistOutbound(input: {
   return message.id;
 }
 
+/** WhatsApp por Zernio: texto en el hilo por el que entró el cliente. */
+async function callZernioWhatsappSend(
+  target: NonNullable<SendTarget["zernioWhatsapp"]>,
+  text: string
+): Promise<string> {
+  try {
+    const { platformMessageId } = await sendZernioMessage({
+      token: target.config.token,
+      accountId: target.config.accountId,
+      conversationId: target.threadRef,
+      text,
+    });
+    return `zwa_${platformMessageId}`;
+  } catch (err) {
+    throw new SendError(
+      "meta_error",
+      `Zernio rechazó el mensaje: ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
+}
+
 /** Envía un mensaje de texto libre por WhatsApp. */
 export async function sendText(input: {
   conversationId: string;
@@ -300,7 +349,9 @@ export async function sendText(input: {
   const target = await prepareSend(input.conversationId, input.organizationId);
   const { credentials } = target;
 
-  const waMessageId = target.instagram
+  const waMessageId = target.zernioWhatsapp
+    ? await callZernioWhatsappSend(target.zernioWhatsapp, input.text)
+    : target.instagram
     ? await callInstagramSend(target, input.text)
     : target.messenger
       ? await callMessengerSend(target, input.text)
@@ -320,9 +371,11 @@ export async function sendText(input: {
     // Un canal sin acuses de entrega confirma al aceptar; uno con acuses
     // avanza despues por webhook. Sin esta distincion el mensaje se queda
     // con el reloj puesto para siempre.
-    status: capabilitiesFor(target.conversation.channel).deliveryReceipts
-      ? "pending"
-      : "sent",
+    status:
+      capabilitiesFor(target.conversation.channel).deliveryReceipts &&
+      !target.zernioWhatsapp
+        ? "pending"
+        : "sent",
     aiGenerated: input.aiGenerated,
     origin: input.aiGenerated ? "ai" : "operator",
   });
@@ -378,6 +431,50 @@ export async function sendMediaMessage(input: {
     })
     .returning();
   const asset = assetRows[0]!;
+
+  if (target.zernioWhatsapp) {
+    try {
+      const { platformMessageId } = await sendZernioWhatsappAttachment({
+        config: target.zernioWhatsapp.config,
+        conversationId: target.zernioWhatsapp.threadRef,
+        file: input.file,
+        caption: input.caption,
+        idempotencyKey: assetId,
+      });
+      const messageId = await persistOutbound({
+        organizationId: input.organizationId,
+        conversationId: input.conversationId,
+        waMessageId: `zwa_${platformMessageId}`,
+        type: kind,
+        text: null,
+        status: "sent",
+        aiGenerated: input.aiGenerated,
+        origin: input.aiGenerated ? "ai" : "operator",
+        mediaAssetId: assetId,
+        media: asset,
+      });
+      return { messageId };
+    } catch (err) {
+      const sendErr =
+        err instanceof SendError
+          ? err
+          : new SendError("upload_failed", "No se pudo enviar el adjunto por Zernio");
+      sendErr.messageId = await persistOutbound({
+        organizationId: input.organizationId,
+        conversationId: input.conversationId,
+        waMessageId: null,
+        type: kind,
+        text: null,
+        status: "failed",
+        error: sendErr.message,
+        aiGenerated: input.aiGenerated,
+        origin: input.aiGenerated ? "ai" : "operator",
+        mediaAssetId: assetId,
+        media: asset,
+      });
+      throw sendErr;
+    }
+  }
 
   try {
     const waMediaId = await uploadGraphMedia(credentials!, input.file);
