@@ -1,4 +1,4 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { asc, desc, eq, inArray } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
 import { scoped } from "@/lib/db/tenant";
@@ -138,6 +138,7 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
     .orderBy(desc(schema.message.createdAt))
     .limit(20);
   history.reverse();
+  const captions = await mediaCaptions(history);
   const lastInbound = [...history].reverse().find((m) => m.direction === "in");
   if (!lastInbound) return;
 
@@ -198,12 +199,17 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
       role: "system",
       content: buildAgentSystemPrompt({ profile, kb, stages, agenda, catalog }),
     },
-    ...history
-      .filter((m) => m.text)
-      .map((m) => ({
-        role: m.direction === "in" ? ("user" as const) : ("assistant" as const),
-        content: m.text!,
-      })),
+    ...history.flatMap((m) => {
+      const content = historyContent(m, captions);
+      return content
+        ? [
+            {
+              role: m.direction === "in" ? ("user" as const) : ("assistant" as const),
+              content,
+            },
+          ]
+        : [];
+    }),
     /**
      * Va AL FINAL, después del historial: es el estado de AHORA, y ponerlo
      * antes lo dejaría enterrado bajo la conversación en cuanto esta crezca.
@@ -313,6 +319,36 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
 }
 
 type Conversation = typeof schema.conversation.$inferSelect;
+type Message = typeof schema.message.$inferSelect;
+
+/** Pie de foto de los adjuntos del historial, por id de asset. */
+async function mediaCaptions(history: Message[]): Promise<Map<string, string | null>> {
+  const ids = history.flatMap((m) => (m.mediaAssetId ? [m.mediaAssetId] : []));
+  if (ids.length === 0) return new Map();
+  const rows = await getDb()
+    .select({ id: schema.mediaAsset.id, caption: schema.mediaAsset.caption })
+    .from(schema.mediaAsset)
+    .where(inArray(schema.mediaAsset.id, ids));
+  return new Map(rows.map((r) => [r.id, r.caption]));
+}
+
+/**
+ * Un mensaje del historial como lo lee el modelo. Los adjuntos no tienen texto
+ * y antes se omitían: el agente no veía que ya había mandado la foto de un
+ * producto y la repetía en cada turno en vez de responder la pregunta nueva.
+ */
+function historyContent(
+  m: Message,
+  captions: Map<string, string | null>
+): string | null {
+  if (m.text) return m.text;
+  if (m.type === "text") return null;
+  const caption = m.mediaAssetId ? captions.get(m.mediaAssetId) : null;
+  if (m.direction === "out") {
+    return caption ? `[Foto enviada] ${caption}` : `[Adjunto enviado: ${m.type}]`;
+  }
+  return caption ? `[El cliente envió ${m.type}] ${caption}` : `[El cliente envió ${m.type}]`;
+}
 
 /** Entrega la respuesta: envío real o persistencia sandbox (is_test). */
 async function deliverReply(
