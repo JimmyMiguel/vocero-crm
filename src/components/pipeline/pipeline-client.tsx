@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   DndContext,
   DragOverlay,
@@ -13,13 +14,20 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { MessageSquareText, Settings2, Trophy, XCircle } from "lucide-react";
+import {
+  AlertTriangle,
+  Hand,
+  MessageSquareText,
+  Settings2,
+  Trophy,
+  XCircle,
+} from "lucide-react";
+import { cbmTexto, costoServicio, usd, type NodoFicha } from "@/lib/nodo";
 import type { LossReason, PriorityValue, StageDto } from "@/lib/types";
 import { formatMoneyCents, sumable } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { ContactAvatar } from "@/components/avatar";
 import { Button } from "@/components/ui/button";
-import { formatTime } from "@/components/inbox/helpers";
 import { StageManager } from "./stage-manager";
 import { LossReasonDialog } from "./loss-reason-dialog";
 import { AmountDialog } from "./amount-dialog";
@@ -36,9 +44,19 @@ export type BoardLead = {
   amountCents: number | null;
   currency: string | null;
   priority: PriorityValue | null;
+  /** NODO */
+  shipmentId: string | null;
+  daysInStage: number;
+  /** La IA pasó el caso a una persona y nadie lo ha tomado. */
+  needsAction: boolean;
+  /** El equipo tomó la conversación: la IA está en pausa. */
+  aiPaused: boolean;
+  nodo: NodoFicha;
 };
 
 export function PipelineClient() {
+  const router = useRouter();
+  const [soloAccion, setSoloAccion] = useState(false);
   const [stages, setStages] = useState<StageDto[]>([]);
   const [currency, setCurrency] = useState("MXN");
   const [leads, setLeads] = useState<BoardLead[]>([]);
@@ -123,6 +141,27 @@ export function PipelineClient() {
     void refetch();
   }
 
+  /**
+   * "Tomar conversación": pausa la IA en ese chat y lleva al equipo a la
+   * bandeja para responder él mismo.
+   */
+  async function tomarConversacion(lead: BoardLead) {
+    if (!lead.conversationId) return;
+    setLeads((prev) =>
+      prev.map((l) =>
+        l.id === lead.id ? { ...l, aiPaused: true, needsAction: false } : l
+      )
+    );
+    await fetch(`/api/conversations/${lead.conversationId}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ aiEnabled: false }),
+    }).catch(() => null);
+    router.push(`/inbox?contact=${lead.contact.id}`);
+  }
+
+  const pendientes = leads.filter((l) => l.needsAction).length;
+
   async function guardarPrioridad(leadId: string, priority: PriorityValue | null) {
     setLeads((prev) =>
       prev.map((l) => (l.id === leadId ? { ...l, priority } : l))
@@ -173,10 +212,30 @@ export function PipelineClient() {
   return (
     <div className="flex h-full flex-col">
       <header className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3 sm:px-6 sm:py-4">
-        <h2 className="text-[17px] font-bold tracking-tight">Pipeline</h2>
-        <Button variant="outline" size="sm" onClick={() => setManaging(true)}>
-          <Settings2 className="h-4 w-4" /> Gestionar etapas
-        </Button>
+        <div>
+          <h2 className="text-[17px] font-bold tracking-tight">Pipeline de importaciones</h2>
+          <p className="text-xs text-text-3">
+            {leads.length} clientes · arrastra las tarjetas para cambiar de etapa
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setSoloAccion((v) => !v)}
+            aria-pressed={soloAccion}
+            className={cn(
+              "flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
+              soloAccion
+                ? "border-warning-soft bg-warning-tint text-warning-text"
+                : "border-border-strong text-warning-text hover:bg-accent"
+            )}
+          >
+            <AlertTriangle className="h-3.5 w-3.5" />
+            {pendientes} requieren acción
+          </button>
+          <Button variant="outline" size="sm" onClick={() => setManaging(true)}>
+            <Settings2 className="h-4 w-4" /> Gestionar etapas
+          </Button>
+        </div>
       </header>
 
       {/* El tablero se arrastra en horizontal; en el teléfono cada columna
@@ -195,8 +254,10 @@ export function PipelineClient() {
                 currency={currency}
                 onEditAmount={setEditandoMonto}
                 onOpen={(l) => setAbiertoId(l.id)}
+                onTake={(l) => void tomarConversacion(l)}
                 leads={leads
                   .filter((l) => l.stageId === stage.id)
+                  .filter((l) => !soloAccion || l.needsAction)
                   .sort((a, b) => a.position - b.position)}
               />
             ))}
@@ -228,6 +289,8 @@ export function PipelineClient() {
           onMoveStage={(stageId) => moverDesdeCajon(abierto.id, stageId)}
           onAmount={(cents) => void guardarMonto(abierto.id, cents)}
           onPriority={(p) => void guardarPrioridad(abierto.id, p)}
+          onTake={() => void tomarConversacion(abierto)}
+          onChanged={() => void refetch()}
         />
       )}
 
@@ -295,19 +358,21 @@ function StageColumn({
   currency,
   onEditAmount,
   onOpen,
+  onTake,
 }: {
   stage: StageDto;
   leads: BoardLead[];
   currency: string;
   onEditAmount: (lead: BoardLead) => void;
   onOpen: (lead: BoardLead) => void;
+  onTake: (lead: BoardLead) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
   return (
     <div
       ref={setNodeRef}
       className={cn(
-        "flex h-full w-64 shrink-0 snap-start flex-col rounded-lg border border-border-strong bg-subtle transition-[box-shadow,border-color]",
+        "flex h-full w-[272px] shrink-0 snap-start flex-col rounded-lg border border-border-strong bg-subtle transition-[box-shadow,border-color]",
         isOver && "border-brand ring-[3px] ring-brand-soft"
       )}
     >
@@ -331,16 +396,38 @@ function StageColumn({
             currency={currency}
             onEditAmount={onEditAmount}
             onOpen={onOpen}
+            onTake={onTake}
           />
         ))}
       </div>
-      <StageFooter leads={leads} currency={currency} />
+      <CbmFooter leads={leads} />
+    </div>
+  );
+}
+
+/** NODO: CBM y costo estimado de la columna (CBM × $600, sin impuestos). */
+function CbmFooter({ leads }: { leads: BoardLead[] }) {
+  const cbm = leads.reduce((a, l) => a + (l.nodo.cbm ?? 0), 0);
+  const sinCbm = leads.filter((l) => l.nodo.cbm === null).length;
+  return (
+    <div className="border-t px-3 py-2 text-[11px]">
+      {cbm === 0 ? (
+        <p className="text-muted-foreground">Sin CBM estimados</p>
+      ) : (
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="text-muted-foreground">
+            {cbmTexto(cbm)}
+            {sinCbm > 0 ? ` · ${sinCbm} sin CBM` : ""}
+          </span>
+          <span className="font-semibold tabular-nums">${usd(costoServicio(cbm))}</span>
+        </div>
+      )}
     </div>
   );
 }
 
 /** Cuánto dinero hay en esta etapa, y qué quedó fuera de la cuenta. */
-function StageFooter({ leads, currency }: { leads: BoardLead[]; currency: string }) {
+export function StageFooter({ leads, currency }: { leads: BoardLead[]; currency: string }) {
   const { totalCents, sinMonto, otraMoneda } = totalesDeEtapa(leads, currency);
   const conMonto = leads.length - sinMonto - otraMoneda;
 
@@ -375,11 +462,13 @@ function DraggableLead({
   currency,
   onEditAmount,
   onOpen,
+  onTake,
 }: {
   lead: BoardLead;
   currency: string;
   onEditAmount: (lead: BoardLead) => void;
   onOpen: (lead: BoardLead) => void;
+  onTake: (lead: BoardLead) => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: lead.id,
@@ -406,40 +495,46 @@ function DraggableLead({
       aria-label={`Abrir el trato de ${lead.contact.name}`}
       className={cn(isDragging && "opacity-40")}
     >
-      <LeadCard lead={lead} currency={currency} onEditAmount={onEditAmount} />
+      <LeadCard lead={lead} currency={currency} onEditAmount={onEditAmount} onTake={onTake} />
     </div>
   );
 }
 
 function LeadCard({
   lead,
-  currency,
   overlay = false,
-  onEditAmount,
+  onTake,
 }: {
   lead: BoardLead;
   currency: string;
   overlay?: boolean;
   onEditAmount?: (lead: BoardLead) => void;
+  onTake?: (lead: BoardLead) => void;
 }) {
+  const dias = lead.daysInStage;
   return (
     <div
       className={cn(
-        "cursor-grab rounded-md border border-border-strong bg-card p-3 shadow-sm transition-shadow hover:shadow-md",
+        "cursor-grab rounded-md border bg-card p-3 shadow-sm transition-shadow hover:shadow-md",
+        lead.needsAction ? "border-warning" : "border-border-strong",
         overlay && "rotate-2 shadow-pop"
       )}
     >
-      <div className="flex items-center gap-2.5">
+      {lead.needsAction && (
+        <p className="mb-2 flex items-center gap-1 rounded bg-warning-tint px-1.5 py-1 text-[11px] font-semibold text-warning-text">
+          <AlertTriangle className="h-3 w-3 shrink-0" />
+          Requiere acción del equipo
+        </p>
+      )}
+      <div className="flex items-start gap-2.5">
         <ContactAvatar name={lead.contact.name} seed={lead.contact.id} size="sm" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <p className="truncate text-sm font-semibold">{lead.contact.name}</p>
             {lead.priority && <PriorityBadge value={lead.priority} />}
           </div>
-          <p className="text-[11px] text-muted-foreground">
-            {lead.lastActivityAt
-              ? `Actividad: ${formatTime(lead.lastActivityAt)}`
-              : "Sin actividad"}
+          <p className="truncate text-xs text-text-2">
+            {lead.nodo.producto ?? "Producto por definir"}
           </p>
         </div>
         {lead.conversationId && (
@@ -454,33 +549,42 @@ function LeadCard({
           </Link>
         )}
       </div>
-      {!overlay && onEditAmount && (
-        <button
-          // `stopPropagation` en pointerdown: sin esto, tocar el monto empieza
-          // un arrastre y el diálogo nunca abre.
-          onPointerDown={(e) => e.stopPropagation()}
-          // También en `click`: sin esto, tocar el monto abriría además el
-          // cajón, porque el evento sigue subiendo hasta la tarjeta.
-          onClick={(e) => {
-            e.stopPropagation();
-            onEditAmount(lead);
-          }}
+      <div className="mt-2 flex items-center justify-between gap-2 text-[11px]">
+        <span className="rounded bg-brand-tint px-1.5 py-0.5 font-mono font-semibold text-brand-text">
+          {cbmTexto(lead.nodo.cbm)}
+        </span>
+        <span
           className={cn(
-            "mt-1.5 w-full rounded px-1 py-0.5 text-right text-xs tabular-nums hover:bg-accent",
-            lead.amountCents === null
-              ? "text-text-3"
-              : "font-semibold text-foreground"
+            "tabular-nums",
+            dias >= 7 ? "font-semibold text-warning-text" : "text-text-3"
           )}
+          title="Días en esta etapa"
         >
-          {lead.amountCents === null
-            ? "+ monto"
-            : formatMoneyCents(lead.amountCents, lead.currency ?? currency)}
-        </button>
-      )}
-      {overlay && lead.amountCents !== null && (
-        <p className="mt-1.5 text-right text-xs font-semibold tabular-nums">
-          {formatMoneyCents(lead.amountCents, lead.currency ?? currency)}
-        </p>
+          {dias === 0 ? "Hoy" : dias === 1 ? "1 día" : `${dias} días`} en la etapa
+        </span>
+      </div>
+      {!overlay && onTake && lead.conversationId && (
+        lead.aiPaused ? (
+          <p className="mt-2 text-center text-[11px] text-text-3">
+            IA en pausa · responde el equipo
+          </p>
+        ) : (
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onTake(lead);
+            }}
+            className={cn(
+              "mt-2 flex w-full items-center justify-center gap-1.5 rounded border px-2 py-1 text-xs font-semibold transition-colors",
+              lead.needsAction
+                ? "border-brand bg-brand text-brand-fg hover:bg-brand-hover"
+                : "border-border text-text-2 hover:bg-accent"
+            )}
+          >
+            <Hand className="h-3.5 w-3.5" /> Tomar conversación
+          </button>
+        )
       )}
     </div>
   );

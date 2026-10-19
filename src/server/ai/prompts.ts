@@ -1,3 +1,4 @@
+import { USD_POR_CBM } from "@/lib/nodo";
 import type { schema } from "@/lib/db";
 
 type AgentProfile = typeof schema.agentProfile.$inferSelect;
@@ -33,6 +34,8 @@ export function buildAgentSystemPrompt(input: {
   agenda?: boolean;
   /** Catálogo ya renderizado (`renderCatalog`); vacío = sin catálogo. */
   catalog?: string;
+  /** NODO: próxima salida de contenedor (null = negocio sin contenedores). */
+  nodo?: string | null;
 }): string {
   const { profile } = input;
   const stageNames = input.stages.map((s) => s.name).join(" | ");
@@ -74,6 +77,17 @@ export function buildAgentSystemPrompt(input: {
     input.catalog
       ? `CATÁLOGO DE PRODUCTOS (solo los disponibles; el id entre corchetes es para send_product):\n${input.catalog}`
       : null,
+    input.nodo
+      ? [
+          "IMPORTACIÓN (contenedor compartido):",
+          input.nodo,
+          `Costo del servicio: $${USD_POR_CBM} por CBM (flete, agenciamiento y puerto), SIN impuestos de aduana: esos se calculan según el producto.`,
+          "Datos que debes averiguar y guardar con save_ficha (usa EXACTAMENTE estas claves):",
+          "- ciudad (Quito, Cuenca u otra) · tiene_proveedor (true/false) · producto · cantidad (número) · cbm (número, solo si el cliente lo sabe) · servicio (Importación, Maquinaria, Marca propia, Verificación o Viaje a ferias)",
+          "- Si el cliente manda una foto del producto, agradécela: el equipo la usa como referencia.",
+          "- Cuando ya tengas producto, cantidad y ciudad, o el cliente pida una cotización formal, precios exactos o negociar → handoff para que el equipo cotice.",
+        ].join("\n")
+      : null,
     `Etapas del pipeline disponibles: ${stageNames}`,
     [
       "En cada turno respondes ÚNICAMENTE un objeto JSON con UNA acción:",
@@ -81,6 +95,7 @@ export function buildAgentSystemPrompt(input: {
       '- {"action":"reply","text":"..."} — responder al cliente.',
       '- {"action":"update_lead","note":"...","reply":"..."} — guardar una nota del lead (reply opcional).',
       '- {"action":"move_stage","stage":"<nombre exacto de etapa>","reply":"..."} — mover el lead (reply opcional).',
+      '- {"action":"save_ficha","ficha":{"clave":"valor"},"reply":"..."} — guardar datos que el cliente te dio y seguir la conversación en reply.',
       '- {"action":"handoff","reason":"...","farewell":"..."} — escalar a un humano (farewell opcional para despedirte).',
       ...agendaLines,
       ...catalogLines,
