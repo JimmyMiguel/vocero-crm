@@ -1,6 +1,8 @@
 import {
   CalendarDays,
   ChartColumn,
+  Container,
+  LayoutDashboard,
   FlaskConical,
   Inbox,
   Kanban,
@@ -58,8 +60,11 @@ export function appNavGroups({
   role?: string | null;
 }): NavGroup[] {
   const trabajo: NavItem[] = [
+    // NODO: el panel de inicio y los contenedores van con el trabajo diario.
+    { href: "/inicio", label: "Inicio", icon: LayoutDashboard },
     { href: "/inbox", label: "Bandeja", icon: Inbox, badge: true },
     { href: "/pipeline", label: "Pipeline", icon: Kanban },
+    { href: "/contenedores", label: "Contenedores", icon: Container },
     { href: "/contacts", label: "Contactos", icon: Users },
   ];
   // Citas va después de Contactos: es el paso siguiente de un trato, no una

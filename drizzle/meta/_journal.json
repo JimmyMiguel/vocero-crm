@@ -127,6 +127,13 @@
       "when": 1791683953899,
       "tag": "0017_catalogo_productos",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792434062517,
+      "tag": "0018_nodo_contenedores_cotizaciones",
+      "breakpoints": true
     }
   ]
 }

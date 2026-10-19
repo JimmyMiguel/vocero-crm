@@ -18,6 +18,15 @@ const baseActions = [
     stage: z.string().min(1),
     reply: z.string().optional(),
   }),
+  /**
+   * Guarda lo que el cliente contó (ciudad, producto, cantidad…) en la ficha
+   * del lead, y opcionalmente responde en el mismo turno.
+   */
+  z.object({
+    action: z.literal("save_ficha"),
+    ficha: z.record(z.union([z.string(), z.number(), z.boolean(), z.null()])),
+    reply: z.string().optional(),
+  }),
   z.object({
     action: z.literal("handoff"),
     reason: z.string().optional(),

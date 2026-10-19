@@ -3,6 +3,8 @@ import { withAuth } from "@/lib/api";
 import { getDb, schema } from "@/lib/db";
 import { scoped } from "@/lib/db/tenant";
 import { getBranding } from "@/server/branding";
+import { leerNodoFicha } from "@/lib/nodo";
+import { diasDesde, requiereAccion, stageSince } from "@/server/nodo";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +23,8 @@ export const GET = withAuth(async (session) => {
       lead: schema.lead,
       contact: schema.contact,
       conversationId: schema.conversation.id,
+      aiEnabled: schema.conversation.aiEnabled,
+      handoffAt: schema.conversation.handoffAt,
     })
     .from(schema.lead)
     .innerJoin(schema.contact, eq(schema.lead.contactId, schema.contact.id))
@@ -37,6 +41,10 @@ export const GET = withAuth(async (session) => {
   // La moneda del negocio viaja con el tablero: el cliente suma sus columnas y
   // necesita saber cuál es la única sumable, sin adivinarla ni pedirla aparte.
   const { currency } = await getBranding(session.organizationId);
+  const desde = await stageSince(
+    session.organizationId,
+    leads.map((r) => r.lead.id)
+  );
 
   return Response.json({
     currency,
@@ -60,6 +68,12 @@ export const GET = withAuth(async (session) => {
         phone: r.contact.phone,
       },
       conversationId: r.conversationId,
+      // NODO: lo que la tarjeta y la ficha necesitan del trato.
+      shipmentId: r.lead.shipmentId,
+      daysInStage: diasDesde(desde.get(r.lead.id) ?? r.lead.createdAt),
+      needsAction: requiereAccion(r),
+      aiPaused: r.conversationId !== null && r.aiEnabled === false,
+      nodo: leerNodoFicha(r.contact.ficha),
     })),
   });
 });

@@ -35,6 +35,9 @@ const prefixes = {
   dispatch: "dsp",
   // catálogo de productos (automatizate.ec)
   product: "prd",
+  // NODO — contenedores y cotizaciones
+  shipment: "shp",
+  quote: "qt",
 } as const;
 
 export type IdKind = keyof typeof prefixes;

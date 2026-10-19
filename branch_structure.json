@@ -1,0 +1,18 @@
+{
+  "default_branch": "main",
+  "branches": [
+    "cliente/nodo",
+    "main",
+    "origin"
+  ],
+  "parent": {
+    "cliente/nodo": "main",
+    "main": null,
+    "origin": "main"
+  },
+  "order": [
+    "main",
+    "cliente/nodo",
+    "origin"
+  ]
+}
