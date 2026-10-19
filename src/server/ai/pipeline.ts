@@ -23,6 +23,8 @@ import {
 } from "@/server/ai/actions";
 import { HANDOFF_BACKUP_ACK, matchesHandoffIntent } from "@/server/ai/handoff";
 import { buildAgentSystemPrompt } from "@/server/ai/prompts";
+import { upsertFicha } from "@/server/bot/ficha";
+import { nodoContextForAgent } from "@/server/nodo";
 import { agendaEnabled } from "@/server/agenda/flag";
 import { bookSlot, offerSlots } from "@/server/agenda/agent";
 import { getOffers, mapaDeHuecosParaModelo } from "@/server/agenda/offers";
@@ -170,6 +172,7 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
 
   const agenda = agendaEnabled();
   const catalog = renderCatalog(await listProducts(organizationId));
+  const nodo = await nodoContextForAgent(organizationId);
 
   /**
    * 015 — Los huecos vigentes, con su instante exacto.
@@ -197,7 +200,7 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
   const messages: ChatMessage[] = [
     {
       role: "system",
-      content: buildAgentSystemPrompt({ profile, kb, stages, agenda, catalog }),
+      content: buildAgentSystemPrompt({ profile, kb, stages, agenda, catalog, nodo }),
     },
     ...history.flatMap((m) => {
       const content = historyContent(m, captions);
@@ -303,6 +306,19 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
     case "reply":
       await deliverReply(conversation, action.text);
       return;
+    case "save_ficha": {
+      await upsertFicha({
+        organizationId,
+        contactId: conversation.contactId,
+        ficha: action.ficha,
+      });
+      publish(organizationId, {
+        type: "conversation.updated",
+        data: { conversation: { id: conversationId } },
+      });
+      if (action.reply) await deliverReply(conversation, action.reply);
+      return;
+    }
     case "update_lead": {
       await appendLeadNote(organizationId, conversation.contactId, action.note);
       if (action.reply) await deliverReply(conversation, action.reply);

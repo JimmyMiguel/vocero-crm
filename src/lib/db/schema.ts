@@ -1,6 +1,8 @@
 import {
   boolean,
   check,
+  date,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -242,6 +244,10 @@ export const lead = pgTable(
     priority: text("priority", { enum: ["alta", "media", "baja"] }),
     priorityUpdatedAt: timestamp("priority_updated_at"),
     lastActivityAt: timestamp("last_activity_at"),
+    /** NODO: contenedor (salida mensual) al que va la carga. NULL = sin asignar. */
+    shipmentId: text("shipment_id").references(() => shipment.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
@@ -1210,4 +1216,54 @@ export const product = pgTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (t) => [index("product_org_idx").on(t.organizationId)]
+);
+
+/**
+ * NODO — Contenedor compartido: una salida mensual desde China. Los clientes
+ * se asignan desde el trato (`lead.shipment_id`) y ocupan sus CBM.
+ */
+export const shipment = pgTable(
+  "shipment",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    /** Fecha límite para que la carga llegue a la bodega en China. */
+    cutoffDate: date("cutoff_date", { mode: "string" }),
+    /** Fecha de salida del contenedor. */
+    departureDate: date("departure_date", { mode: "string" }).notNull(),
+    /** Días estimados de tránsito hasta Ecuador. */
+    transitDays: integer("transit_days").notNull().default(55),
+    /** Capacidad útil en CBM (un 40' HC ronda los 68). */
+    capacityCbm: doublePrecision("capacity_cbm").notNull().default(68),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("shipment_org_departure_idx").on(t.organizationId, t.departureDate)]
+);
+
+/**
+ * NODO — Cotización emitida. Guarda una foto de los datos con los que se
+ * generó, para que el número correlativo siempre muestre lo mismo aunque la
+ * ficha cambie después.
+ */
+export const quote = pgTable(
+  "quote",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    leadId: text("lead_id")
+      .notNull()
+      .references(() => lead.id, { onDelete: "cascade" }),
+    number: integer("number").notNull(),
+    data: jsonb("data").$type<Record<string, unknown>>().notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("quote_org_number_uq").on(t.organizationId, t.number),
+    index("quote_lead_idx").on(t.leadId),
+  ]
 );

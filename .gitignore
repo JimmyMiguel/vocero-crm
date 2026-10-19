@@ -1,6 +1,4 @@
 # --- Secretos (NUNCA al control de versiones) ---
-.env
-.env.*
 !.env.example
 *.pem
 *.key
@@ -30,7 +28,6 @@ tmp/
 .DS_Store
 Thumbs.db
 .idea/
-.vscode/*
 !.vscode/extensions.json
 
 # --- Claude Code: estado local (no compartir) ---
@@ -44,3 +41,4 @@ Thumbs.db
 .dev-media/
 # Capturas y salidas de los self-tests (p. ej. scripts/e2e-responsive.mjs)
 scratch/
+config.bat

@@ -6,6 +6,7 @@ import { scoped } from "@/lib/db/tenant";
 import { publish } from "@/server/events/bus";
 import { moveLeadToStage } from "@/server/leads/stage-history";
 import { getBranding } from "@/server/branding";
+import { getShipment } from "@/server/nodo";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +46,8 @@ const patchSchema = z.object({
   currency: z.string().length(3).nullable().optional(),
   /** `null` explícito la quita; ausente la deja como estaba. */
   priority: z.enum(["alta", "media", "baja"]).nullable().optional(),
+  /** NODO: contenedor asignado. `null` lo quita. */
+  shipmentId: z.string().min(1).nullable().optional(),
 });
 
 export const PATCH = withAuth(async (session, req: Request, ctx: Params) => {
@@ -71,6 +74,16 @@ export const PATCH = withAuth(async (session, req: Request, ctx: Params) => {
     // La fecha acompaña al valor: sirve para saber si la decisión es de hoy o
     // de hace tres semanas, que es lo que vuelve útil mirarla.
     extra.priorityUpdatedAt = body.data.priority === null ? null : new Date();
+  }
+
+  if (body.data.shipmentId !== undefined) {
+    if (
+      body.data.shipmentId !== null &&
+      !(await getShipment(session.organizationId, body.data.shipmentId))
+    ) {
+      return apiError(422, "invalid_shipment", "Contenedor inexistente");
+    }
+    extra.shipmentId = body.data.shipmentId;
   }
 
   // Sin etapa: solo se actualizan los campos del lead. No pasa por la puerta
