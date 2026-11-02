@@ -114,3 +114,12 @@ export function renderCatalog(products: Product[]): string {
     )
     .join("\n");
 }
+
+/**
+ * El catálogo que recibe el agente (y el Laboratorio). Con AGENT_CATALOG=off
+ * el catálogo es solo vitrina en el CRM: el agente no lo ve ni envía fotos.
+ */
+export async function agentCatalog(organizationId: string): Promise<string> {
+  if (process.env.AGENT_CATALOG?.trim().toLowerCase() === "off") return "";
+  return renderCatalog(await listProducts(organizationId));
+}

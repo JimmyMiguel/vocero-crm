@@ -9,12 +9,7 @@ import { isAiConfiguredFor } from "@/lib/ai/provider";
 import { publish } from "@/server/events/bus";
 import { isWindowOpen } from "@/server/inbox/window";
 import { SendError, sendMediaMessage, sendText } from "@/server/inbox/send";
-import {
-  getProduct,
-  listProducts,
-  readProductImage,
-  renderCatalog,
-} from "@/server/catalog";
+import { agentCatalog, getProduct, readProductImage } from "@/server/catalog";
 import {
   agentActionSchema,
   degradeAction,
@@ -169,7 +164,7 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
     .orderBy(asc(schema.pipelineStage.position));
 
   const agenda = agendaEnabled();
-  const catalog = renderCatalog(await listProducts(organizationId));
+  const catalog = await agentCatalog(organizationId);
 
   /**
    * 015 — Los huecos vigentes, con su instante exacto.
