@@ -5,6 +5,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  real,
   text,
   timestamp,
   uniqueIndex,
@@ -1203,11 +1204,52 @@ export const product = pgTable(
     description: text("description"),
     /** NULL = no se lleva inventario; 0 = agotado (el agente no lo ofrece). */
     stock: integer("stock"),
+    /** Portada: la primera foto de `product_image`. */
     imageAssetId: text("image_asset_id").references(() => mediaAsset.id, {
       onDelete: "set null",
     }),
+    // Ficha inmobiliaria (cliente/inmobiliaria). Todo opcional.
+    /** "venta" | "arriendo" */
+    operation: text("operation"),
+    /** casa, departamento, terreno, local, oficina, suite… */
+    propertyType: text("property_type"),
+    city: text("city"),
+    sector: text("sector"),
+    bedrooms: integer("bedrooms"),
+    bathrooms: real("bathrooms"),
+    /** m² de construcción */
+    areaM2: integer("area_m2"),
+    /** m² de terreno */
+    lotM2: integer("lot_m2"),
+    parking: integer("parking"),
+    /** Amenidades separadas por coma: piscina, guardianía, ascensor… */
+    features: text("features"),
+    /** Enlace de Google Maps. Solo para el equipo: el agente no lo ve. */
+    locationUrl: text("location_url"),
+    /** disponible | reservado | vendido | arrendado. El agente solo ofrece "disponible". */
+    status: text("status").notNull().default("disponible"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (t) => [index("product_org_idx").on(t.organizationId)]
+);
+
+/** Fotos de un producto/propiedad, en orden. La de `position` menor es la portada. */
+export const productImage = pgTable(
+  "product_image",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    productId: text("product_id")
+      .notNull()
+      .references(() => product.id, { onDelete: "cascade" }),
+    mediaAssetId: text("media_asset_id")
+      .notNull()
+      .references(() => mediaAsset.id, { onDelete: "cascade" }),
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("product_image_product_idx").on(t.productId, t.position)]
 );

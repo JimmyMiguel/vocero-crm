@@ -9,7 +9,12 @@ import { isAiConfiguredFor } from "@/lib/ai/provider";
 import { publish } from "@/server/events/bus";
 import { isWindowOpen } from "@/server/inbox/window";
 import { SendError, sendMediaMessage, sendText } from "@/server/inbox/send";
-import { agentCatalog, getProduct, readProductImage } from "@/server/catalog";
+import {
+  AGENT_PHOTOS_PER_SEND,
+  agentCatalog,
+  getProduct,
+  readProductImages,
+} from "@/server/catalog";
 import {
   agentActionSchema,
   degradeAction,
@@ -390,16 +395,23 @@ async function deliverProduct(
     await persistTestOutbound(conversation, `[Foto: ${product.name}] ${text}`);
     return true;
   }
-  const file = await readProductImage(conversation.organizationId, product);
-  if (!file) return false;
+  const files = await readProductImages(
+    conversation.organizationId,
+    product,
+    AGENT_PHOTOS_PER_SEND
+  );
+  if (files.length === 0) return false;
   try {
-    await sendMediaMessage({
-      conversationId: conversation.id,
-      organizationId: conversation.organizationId,
-      file,
-      caption: text.slice(0, 1024),
-      aiGenerated: true,
-    });
+    // Varias fotos (p. ej. una propiedad): el texto va solo en la primera.
+    for (const [i, file] of files.entries()) {
+      await sendMediaMessage({
+        conversationId: conversation.id,
+        organizationId: conversation.organizationId,
+        file,
+        caption: i === 0 ? text.slice(0, 1024) : undefined,
+        aiGenerated: true,
+      });
+    }
   } catch (err) {
     if (err instanceof SendError && err.code === "window_closed") {
       await applyHandoff(conversation.id, conversation.organizationId, "ventana");

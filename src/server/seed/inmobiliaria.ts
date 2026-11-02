@@ -344,44 +344,59 @@ const CLIENTES: Cliente[] = [
   },
 ];
 
-const PROPIEDADES: { name: string; price: string; description: string }[] = [
+type Propiedad = { name: string; price: string; description: string } & Partial<
+  Pick<
+    typeof schema.product.$inferInsert,
+    "operation" | "propertyType" | "city" | "sector" | "bedrooms" | "bathrooms" | "areaM2" | "lotM2" | "parking" | "features"
+  >
+>;
+
+const PROPIEDADES: Propiedad[] = [
   {
     name: "Casa 3 hab. en Samborondón (km 10)",
+    operation: "venta", propertyType: "Casa", city: "Samborondón", sector: "Km 10", bedrooms: 3, bathrooms: 2.5, areaM2: 160, parking: 2, features: "Patio, guardianía 24/7, áreas verdes",
     price: "$175.000",
     description: "3 habitaciones, 2,5 baños, 160 m² de construcción, patio y 2 parqueaderos. Urbanización con guardianía 24/7 y áreas verdes. Califica para crédito BIESS.",
   },
   {
     name: "Departamento 2 hab. en Cumbayá",
+    operation: "venta", propertyType: "Departamento", city: "Quito", sector: "Cumbayá", bedrooms: 2, bathrooms: 2, areaM2: 95, parking: 1, features: "Estudio, balcón, gimnasio, parqueadero cubierto",
     price: "$128.000",
     description: "95 m², 2 habitaciones, estudio, 2 baños y balcón con vista al valle. Edificio con gimnasio y parqueadero cubierto.",
   },
   {
     name: "Casa 4 hab. en Cumbayá",
+    operation: "venta", propertyType: "Casa", city: "Quito", sector: "Cumbayá", bedrooms: 4, areaM2: 280, lotM2: 400, features: "Jardín, cuarto de servicio, conjunto privado",
     price: "$245.000",
     description: "280 m² de construcción en terreno de 400 m². 4 habitaciones, jardín, cuarto de servicio. Conjunto privado.",
   },
   {
     name: "Terreno 600 m² Vía a la Costa (km 14)",
+    operation: "venta", propertyType: "Terreno", city: "Guayaquil", sector: "Vía a la Costa km 14", lotM2: 600, features: "Urbanización cerrada, agua, luz, alcantarillado",
     price: "$85.000",
     description: "Lote plano en urbanización cerrada con agua, luz y alcantarillado. Listo para construir.",
   },
   {
     name: "Departamento amoblado en Urdesa (arriendo)",
+    operation: "arriendo", propertyType: "Departamento", city: "Guayaquil", sector: "Urdesa", bedrooms: 2, bathrooms: 2, parking: 1, features: "Amoblado",
     price: "$650/mes + alícuota",
     description: "2 habitaciones, 2 baños, amoblado, parqueadero. Cerca de colegios y centros comerciales.",
   },
   {
     name: "Suite en la Kennedy (arriendo)",
+    operation: "arriendo", propertyType: "Suite", city: "Guayaquil", sector: "Kennedy", bedrooms: 1, bathrooms: 1, features: "Cocina equipada, lavandería",
     price: "$450/mes",
     description: "1 habitación, cocina equipada, lavandería. Ideal para profesionales.",
   },
   {
     name: "Casa de playa en Salinas",
+    operation: "venta", propertyType: "Casa de playa", city: "Salinas", sector: "A 3 cuadras del malecón", bedrooms: 2, features: "Terraza, piscina comunal",
     price: "$95.000",
     description: "2 habitaciones a 3 cuadras del malecón, terraza y piscina comunal.",
   },
   {
     name: "Local comercial en el norte de Guayaquil",
+    operation: "arriendo", propertyType: "Local comercial", city: "Guayaquil", sector: "Norte", bathrooms: 1, areaM2: 80, features: "Vitrina a la avenida, bodega",
     price: "$1.200/mes",
     description: "80 m² con vitrina a la avenida, baño y bodega. Alto tráfico peatonal.",
   },
@@ -595,15 +610,9 @@ export async function seedInmobiliaria(
       .values({ id: newId("calendarSettings"), organizationId, ...horario })
       .onConflictDoUpdate({ target: schema.calendarSettings.organizationId, set: horario });
 
-    // --- Propiedades (catálogo de vitrina; las fotos se suben en Catálogo) ---
+    // --- Propiedades (las fotos se suben en Propiedades) ---
     for (const p of PROPIEDADES) {
-      await tx.insert(schema.product).values({
-        id: newId("product"),
-        organizationId,
-        name: p.name,
-        price: p.price,
-        description: p.description,
-      });
+      await tx.insert(schema.product).values({ ...p, id: newId("product"), organizationId });
     }
 
     // --- Marca: Kore Residences ---

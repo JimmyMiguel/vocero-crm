@@ -21,7 +21,7 @@ describe("barra lateral agrupada", () => {
     expect(groups.map((g) => g.title)).toEqual(["Trabajo", "Agente", undefined]);
     expect(labels(groups)).toEqual([
       ["Bandeja", "Pipeline", "Contactos"],
-      ["Agente", "Catálogo", "Laboratorio"],
+      ["Agente", "Propiedades", "Laboratorio"],
       ["Resultados"],
     ]);
   });
