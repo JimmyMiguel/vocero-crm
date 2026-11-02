@@ -13,7 +13,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { MessageSquareText, Settings2, Trophy, XCircle } from "lucide-react";
+import { CalendarDays, MessageSquareText, Settings2, Trophy, XCircle } from "lucide-react";
 import type { LossReason, PriorityValue, StageDto } from "@/lib/types";
 import { formatMoneyCents, sumable } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -36,11 +36,24 @@ export type BoardLead = {
   amountCents: number | null;
   currency: string | null;
   priority: PriorityValue | null;
+  /** Próxima visita agendada (solo con la agenda encendida). */
+  nextVisit: NextVisit | null;
+};
+
+export type NextVisit = {
+  id: string;
+  startUtc: string;
+  /** Ya formateada en la zona del negocio: «sáb 7 nov, 10:00». */
+  label: string;
+  /** Día del negocio, para abrir el calendario en esa semana. */
+  dayIso: string;
 };
 
 export function PipelineClient() {
   const [stages, setStages] = useState<StageDto[]>([]);
   const [currency, setCurrency] = useState("MXN");
+  /** Con la agenda encendida el cajón deja agendar visitas. */
+  const [agenda, setAgenda] = useState<{ today: string } | null>(null);
   const [leads, setLeads] = useState<BoardLead[]>([]);
   const [activeLead, setActiveLead] = useState<BoardLead | null>(null);
   const [managing, setManaging] = useState(false);
@@ -71,8 +84,11 @@ export function PipelineClient() {
       stages: StageDto[];
       leads: BoardLead[];
       currency?: string;
+      agenda?: boolean;
+      today?: string | null;
     };
     if (data.currency) setCurrency(data.currency);
+    setAgenda(data.agenda && data.today ? { today: data.today } : null);
     setStages(data.stages);
     setLeads(data.leads);
   }, []);
@@ -224,6 +240,8 @@ export function PipelineClient() {
           lead={abierto}
           stages={stages}
           currency={currency}
+          agenda={agenda}
+          onBooked={() => void refetch()}
           onClose={() => setAbiertoId(null)}
           onMoveStage={(stageId) => moverDesdeCajon(abierto.id, stageId)}
           onAmount={(cents) => void guardarMonto(abierto.id, cents)}
@@ -454,6 +472,12 @@ function LeadCard({
           </Link>
         )}
       </div>
+      {lead.nextVisit && (
+        <p className="mt-1.5 flex items-center gap-1.5 rounded bg-brand-tint px-1.5 py-1 text-[11.5px] font-medium text-brand-text">
+          <CalendarDays className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate first-letter:uppercase">Visita: {lead.nextVisit.label}</span>
+        </p>
+      )}
       {!overlay && onEditAmount && (
         <button
           // `stopPropagation` en pointerdown: sin esto, tocar el monto empieza

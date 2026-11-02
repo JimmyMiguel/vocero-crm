@@ -56,7 +56,7 @@ export function CalendarToolbar({
 
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b px-4 py-3 sm:px-6">
-      <h2 className="mr-1 text-[17px] font-bold tracking-tight">Citas</h2>
+      <h2 className="mr-1 text-[17px] font-bold tracking-tight">Calendario de visitas</h2>
 
       <div className="flex items-center gap-1">
         <Button variant="outline" size="sm" onClick={onToday}>

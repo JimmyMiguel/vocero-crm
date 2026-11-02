@@ -32,7 +32,7 @@ describe("barra lateral agrupada", () => {
       "Bandeja",
       "Pipeline",
       "Contactos",
-      "Citas",
+      "Calendario",
     ]);
     expect(trabajo!.items.at(-1)!.href).toBe("/bookings");
   });

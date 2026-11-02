@@ -42,6 +42,9 @@ export const envSchema = z.object({
   // el catálogo se ve en el CRM pero el agente no lo recibe ni puede enviar
   // fotos (demo cuyo bot atiende otro tema que el de los productos cargados).
   AGENT_CATALOG: z.string().optional(),
+  // Igual para la agenda: con AGENT_AGENDA=off el equipo agenda desde el CRM
+  // pero el agente no ofrece ni reserva horarios.
+  AGENT_AGENDA: z.string().optional(),
   // 015: bases de los conectores. Solo se sobreescriben para apuntar a los
   // mocks en el self-test; en producción se usan las reales.
   ZOOM_BASE_URL: z.string().url().default("https://api.zoom.us/v2"),

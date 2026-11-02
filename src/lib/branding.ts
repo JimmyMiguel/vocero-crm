@@ -132,15 +132,15 @@ function contrast(a: Rgb, b: Rgb): number {
 }
 
 /** Fondo de referencia del tema oscuro (debe seguir a `--bg` de globals.css). */
-const DARK_BG: Rgb = { r: 0x1c, g: 0x26, b: 0x3c };
+const DARK_BG: Rgb = { r: 0x06, g: 0x2c, b: 0x22 };
 
 /**
  * Fondo de referencia de la barra lateral (debe seguir a `--bg` de `.nav-dark`).
- * La barra es azul marino fijo en los dos temas, así que su acento se calcula
+ * La barra es verde Kore fijo en los dos temas, así que su acento se calcula
  * contra ella y no contra la página: si siguiera a DARK_BG, cambiar el tema
  * oscuro repintaría también la barra del tema claro.
  */
-const NAV_BG: Rgb = { r: 0x0b, g: 0x13, b: 0x27 };
+const NAV_BG: Rgb = { r: 0x06, g: 0x52, b: 0x3f };
 
 /** Tinta ENCIMA del acento: blanco solo si pasa AA (4.5:1), si no, casi negro. */
 const INK_ON_LIGHT = "#0f1419";
@@ -167,11 +167,13 @@ function inkPasses(base: Rgb): boolean {
 type DarkRecipe = { bg: Rgb; minContrast: number; soft: number; tint: number; text: number };
 
 // Página oscura: con 3:1 el azul Vocero conserva la tinta blanca (4.5:1); el
-// tint más denso (0.78) hace que la fila seleccionada se vea sin leer el color
-// del texto (≥ 1.25:1 contra el fondo).
-const PAGE_DARK: DarkRecipe = { bg: DARK_BG, minContrast: 3, soft: 0.64, tint: 0.78, text: 0.34 };
-// Barra lateral: la receta de siempre, para que se vea igual que antes.
-const NAV_DARK: DarkRecipe = { bg: NAV_BG, minContrast: 3.5, soft: 0.72, tint: 0.88, text: 0.28 };
+// tint más denso (0.74) hace que la fila seleccionada se vea sin leer el color
+// del texto (≥ 1.25:1 contra el fondo). Sobre el verde de Kore un rojo y el
+// fondo tienen luminancia parecida: con 0.78 su tint ya no se despegaba.
+const PAGE_DARK: DarkRecipe = { bg: DARK_BG, minContrast: 3, soft: 0.6, tint: 0.74, text: 0.38 };
+// Barra lateral (verde Kore): la receta de siempre con la tinta un punto más
+// clara, para que pase AA sobre el tint también con fondo verde.
+const NAV_DARK: DarkRecipe = { bg: NAV_BG, minContrast: 3.6, soft: 0.72, tint: 0.88, text: 0.32 };
 
 function darkAccentSet(accentHex: string, r: DarkRecipe): AccentSet {
   let base = hexToRgb(

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { MessageSquareText, X } from "lucide-react";
+import { CalendarDays, MessageSquareText, X } from "lucide-react";
 import type {
   AnuncioDto,
   FichaDto,
@@ -17,6 +17,7 @@ import { ContactAvatar } from "@/components/avatar";
 import { FichaPanel } from "@/components/ficha-panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Reschedule } from "@/components/bookings/booking-drawer";
 import { PriorityPicker } from "./priority-picker";
 import type { BoardLead } from "./pipeline-client";
 
@@ -32,6 +33,8 @@ export function LeadDrawer({
   lead,
   stages,
   currency,
+  agenda,
+  onBooked,
   onClose,
   onMoveStage,
   onAmount,
@@ -41,6 +44,10 @@ export function LeadDrawer({
   stages: StageDto[];
   /** Moneda del negocio, para el lead que aún no tiene la suya. */
   currency: string;
+  /** null = agenda apagada: no se ofrece agendar. */
+  agenda: { today: string } | null;
+  /** Se agendó una visita: el tablero se recarga (tarjeta y etapa). */
+  onBooked: () => void;
   onClose: () => void;
   /** Pasa por el mismo camino que el arrastre: perder exige motivo. */
   onMoveStage: (stageId: string) => void;
@@ -52,6 +59,9 @@ export function LeadDrawer({
   const [anuncio, setAnuncio] = useState<AnuncioDto | null>(null);
   const [monto, setMonto] = useState("");
   const [editandoMonto, setEditandoMonto] = useState(false);
+  const [agendando, setAgendando] = useState(false);
+  const [guardandoVisita, setGuardandoVisita] = useState(false);
+  const [errorVisita, setErrorVisita] = useState<string | null>(null);
 
   const contactId = lead.contact.id;
   const moneda = lead.currency ?? currency;
@@ -64,8 +74,13 @@ export function LeadDrawer({
     setAnuncio(detail?.anuncio ?? null);
   }, [contactId]);
 
-  // Al abrir otro trato no puede asomarse el anuncio del anterior.
-  useEffect(() => setAnuncio(null), [contactId]);
+  // Al abrir otro trato no puede asomarse el anuncio del anterior (ni quedar
+  // abierto el selector de horarios del otro).
+  useEffect(() => {
+    setAnuncio(null);
+    setAgendando(false);
+    setErrorVisita(null);
+  }, [contactId]);
 
   useEffect(() => {
     setEditandoMonto(false);
@@ -98,6 +113,36 @@ export function LeadDrawer({
       body: JSON.stringify({ ficha: patch }),
     }).catch(() => null);
     void cargarFicha();
+  }
+
+  /**
+   * La visita entra a la agenda (Citas) con día y hora; el servidor mueve el
+   * trato a la etapa de visita agendada. Solo se ofrecen horarios libres, así
+   * dos asesores no prometen la misma hora.
+   */
+  async function agendarVisita(startUtc: string) {
+    setGuardandoVisita(true);
+    setErrorVisita(null);
+    const res = await fetch("/api/bookings", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        kind: "session",
+        contactId,
+        conversationId: lead.conversationId,
+        startUtc,
+      }),
+    }).catch(() => null);
+    setGuardandoVisita(false);
+    if (!res?.ok) {
+      const data = (await res?.json().catch(() => null)) as {
+        error?: { message?: string };
+      } | null;
+      setErrorVisita(data?.error?.message ?? "No se pudo agendar la visita. Intenta de nuevo.");
+      return;
+    }
+    setAgendando(false);
+    onBooked();
   }
 
   const montoParseado = monto.trim() ? parseMoneyToCents(monto) : null;
@@ -168,6 +213,46 @@ export function LeadDrawer({
               </div>
             )}
           </section>
+
+          {/* Cuándo visita */}
+          {agenda && (agendando ? (
+            <>
+              <Reschedule
+                today={agenda.today}
+                busy={guardandoVisita}
+                title="Agendar visita"
+                onCancel={() => setAgendando(false)}
+                onPick={(startUtc) => void agendarVisita(startUtc)}
+              />
+              {errorVisita && (
+                <p role="alert" className="border-b px-4 py-2 text-xs text-destructive">
+                  {errorVisita}
+                </p>
+              )}
+            </>
+          ) : (
+            <section className="border-b p-4">
+              <p className="mb-2 kicker">Visita</p>
+              {lead.nextVisit ? (
+                <div className="space-y-2">
+                  <p className="flex items-center gap-2 text-sm font-semibold first-letter:uppercase">
+                    <CalendarDays className="h-4 w-4 shrink-0 text-brand" />
+                    {lead.nextVisit.label}
+                  </p>
+                  <Link
+                    href={`/bookings?vista=semana&fecha=${lead.nextVisit.dayIso}`}
+                    className="text-xs font-medium text-brand-text hover:underline"
+                  >
+                    Ver en el calendario →
+                  </Link>
+                </div>
+              ) : (
+                <Button size="sm" className="w-full" onClick={() => setAgendando(true)}>
+                  <CalendarDays className="h-4 w-4" /> Agendar visita
+                </Button>
+              )}
+            </section>
+          ))}
 
           {/* Cuánto */}
           <section className="border-b p-4">

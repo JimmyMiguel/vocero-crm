@@ -10,8 +10,8 @@ import {
   resolveNavAccentSet,
 } from "@/lib/branding";
 
-const DARK_BG = "#1c263c";
-const NAV_BG = "#0b1327";
+const DARK_BG = "#062c22";
+const NAV_BG = "#06523f";
 
 /** Contraste WCAG entre dos hex, para afirmar sobre legibilidad y no sobre
  *  valores concretos: lo que importa es que se LEA, no que dé cierto color. */
@@ -146,16 +146,16 @@ describe("white-label: barra lateral bicolor (.nav-dark)", () => {
     expect(nav).not.toContain(resolveAccentSet("#3f5972", "light").accent);
   });
 
-  it("con el azul Vocero, la barra se ve como siempre", () => {
-    // La receta de la barra es la de antes: el ítem activo del tema claro no
-    // cambia aunque el tema oscuro de la página sí.
+  it("con el azul Vocero, la barra calcula su acento contra el verde Kore", () => {
+    // La receta de la barra se calcula contra SU fondo (verde del logo), no
+    // contra el de la página. En Kore el CSS la pisa con el dorado.
     expect(resolveNavAccentSet(DEFAULT_BRANDING.accent)).toEqual({
-      accent: "#256bff",
-      hover: "#4883ff",
-      soft: "#122c63",
-      tint: "#0e1e41",
-      text: "#6295ff",
-      fg: "#ffffff",
+      accent: "#7ea8ff",
+      hover: "#93b6ff",
+      soft: "#286a75",
+      tint: "#145c56",
+      text: "#b0caff",
+      fg: "#0f1419",
     });
   });
 

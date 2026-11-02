@@ -3,8 +3,12 @@
 @tailwind utilities;
 
 /*
-  Sistema de diseño de Vocero: la misma marca que vocerocrm.com dentro del CRM.
-  Papel frío (#f6f8fc), tinta azul marino, acento azul eléctrico con remate
+  Kore Residences: verde profundo (#054c3a) y dorado (#b39352 → #dcbe75) del
+  logo. Neutros cálidos en claro, verde casi negro en oscuro, barra lateral
+  verde con el acento en dorado (ver .nav-dark.nav-dark al final).
+
+  Base: sistema de diseño de Vocero.
+  Papel frío (#f6f4ee), tinta azul marino, acento azul eléctrico con remate
   cian, tipografía Archivo para la interfaz, Instrument Serif itálica para los
   acentos editoriales e IBM Plex Mono para etiquetas y horas.
 
@@ -19,28 +23,28 @@
 
     /* Neutros: papel frío de la landing */
     --bg: #ffffff;
-    --bg-subtle: #f6f8fc;
-    --bg-panel: #eef2f9;
-    --bg-hover: #e9eef8;
+    --bg-subtle: #f6f4ee;
+    --bg-panel: #eeebe2;
+    --bg-hover: #e9e5d9;
     /* Lo que flota sobre la página: diálogos, cajones, menús. En claro es el
        mismo blanco de siempre; en oscuro se aclara para despegarse. */
     --bg-raised: #ffffff;
-    --text: #0a1730;
-    --text-2: #42506b;
-    --text-3: #8391aa;
-    --text-4: #aab4c8;
-    --border: #e8edf6;
-    --border-strong: #dde5f1;
+    --text: #0f2a21;
+    --text-2: #46574f;
+    --text-3: #7f8c85;
+    --text-4: #aeb6b0;
+    --border: #ebe7dd;
+    --border-strong: #e0dbcd;
     /* Chips dentro de una fila y la fila bajo el cursor. En claro coinciden
        con --bg y --bg-subtle; en oscuro NO: ahí --bg-subtle es más oscuro que
        --bg y un chip con fondo --bg desaparece dentro de la fila. */
     --chip-bg: #ffffff;
-    --row-hover: #f6f8fc;
+    --row-hover: #f6f4ee;
     /* 215 — Lo no hábil del calendario de Citas (ver .cal-off). */
-    --cal-off: #f6f8fc;
+    --cal-off: #f6f4ee;
 
     /* Chat: el cliente entra en verde WhatsApp, el CRM contesta en el acento */
-    --chat-bg: #f6f8fc;
+    --chat-bg: #f6f4ee;
     --bubble-in: #eaf7ef;
     --bubble-in-border: #d7eede;
     --bubble-out: var(--accent-tint);
@@ -86,17 +90,17 @@
     --info-text: #0038d8;
 
     /* Superficies auxiliares */
-    --overlay: rgba(4, 16, 46, 0.55);
+    --overlay: rgba(3, 30, 22, 0.55);
     --knob: #ffffff;
 
     /* Radios y sombras (las de la landing, con tinte azul marino) */
     --radius-sm: 9px;
     --radius: 12px;
     --radius-lg: 16px;
-    --shadow-sm: 0 1px 2px rgba(8, 27, 82, 0.06);
-    --shadow-md: 0 14px 40px -16px rgba(8, 27, 82, 0.16);
-    --shadow-pop: 0 30px 80px -20px rgba(8, 27, 82, 0.22),
-      0 8px 24px -12px rgba(8, 27, 82, 0.12);
+    --shadow-sm: 0 1px 2px rgba(6, 48, 36, 0.06);
+    --shadow-md: 0 14px 40px -16px rgba(6, 48, 36, 0.16);
+    --shadow-pop: 0 30px 80px -20px rgba(6, 48, 36, 0.22),
+      0 8px 24px -12px rgba(6, 48, 36, 0.12);
 
     /* Densidad de filas de conversación */
     --row-py: 11px;
@@ -116,27 +120,27 @@
     /* Escalera de superficies, de la más honda a la más alta. --bg-subtle es
        el hueco (hilo del chat, columnas del pipeline, fuera de horario), como
        el papel gris del tema claro. */
-    --bg-subtle: #141c30;
-    --bg: #1c263c;
-    --row-hover: #212c45;
-    --bg-raised: #222d47;
-    --chip-bg: #26334d;
-    --bg-panel: #2c3a57;
-    --bg-hover: #2f3d5e;
+    --bg-subtle: #032119;
+    --bg: #062c22;
+    --row-hover: #073327;
+    --bg-raised: #083428;
+    --chip-bg: #0a3a2d;
+    --bg-panel: #0c4234;
+    --bg-hover: #0e4637;
     /* 215 — Lo no hábil del calendario: el mismo hueco que en claro. */
-    --cal-off: #141c30;
-    --text: #e8eefc;
-    --text-2: #bac6e3;
+    --cal-off: #032119;
+    --text: #e1f2eb;
+    --text-2: #bbc9c4;
     /* ≥ 4.5:1 incluso sobre el hover más claro: la `.kicker` mide 10.5px. */
-    --text-3: #9aa9ca;
+    --text-3: #a0aba7;
     /* Solo iconos y deshabilitado (≥ 3:1), nunca texto de lectura. */
-    --text-4: #7888ad;
+    --text-4: #818a86;
     /* Bordes ≥ 1.6:1 contra la página (214) y ≥ 1.4:1 contra lo que flota. */
-    --border: #36476f;
-    --border-strong: #4a5d8e;
+    --border: #115140;
+    --border-strong: #196a55;
 
     /* Chat */
-    --chat-bg: #141c30;
+    --chat-bg: #032119;
     --bubble-in: #173d2c;
     --bubble-in-border: #2a5e45;
 
@@ -144,9 +148,9 @@
        white-label lo recalcula (ver resolveAccentSet en lib/branding). */
     --accent: #256bff;
     --accent-hover: #4883ff;
-    --accent-soft: #1f3f82;
-    --accent-tint: #1e3567;
-    --accent-text: #6f9eff;
+    --accent-soft: #12457a;
+    --accent-tint: #0e3c5b;
+    --accent-text: #78a3ff;
     --accent-fg: #ffffff;
     --accent-ink: var(--accent-text);
     --ring: var(--accent-hover);
@@ -175,8 +179,8 @@
     --info-soft: #3a568c;
     --info-text: #9dbbff;
 
-    --overlay: rgba(2, 8, 24, 0.72);
-    --knob: #dfe6fa;
+    --overlay: rgba(1, 10, 7, 0.72);
+    --knob: #daeae3;
 
     /* Sombras: sobre oscuro necesitan más negro para leerse */
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
@@ -200,19 +204,19 @@
   */
   .nav-dark {
     color-scheme: dark;
-    --bg: #0b1327;
-    --bg-subtle: #070e20;
-    --bg-panel: #131f3d;
-    --bg-raised: #131f3d;
-    --bg-hover: #182750;
-    --text: #e8eefc;
-    --text-2: #a9b8dc;
-    --text-3: #7688b0;
-    --text-4: #55648a;
-    --border: #263866;
-    --border-strong: #34498a;
-    --chip-bg: #142040;
-    --row-hover: #111b36;
+    --bg: #06523f;
+    --bg-subtle: #054c3a;
+    --bg-panel: #0a5c47;
+    --bg-raised: #0a5c47;
+    --bg-hover: #0d6450;
+    --text: #f5f1e6;
+    --text-2: #d2e2d8;
+    --text-3: #a3c4b4;
+    --text-4: #77a28f;
+    --border: #17654f;
+    --border-strong: #23765f;
+    --chip-bg: #074f3c;
+    --row-hover: #064f3d;
     --accent-ink: var(--accent-text);
     --ring: var(--accent);
     --shadow-pop: 0 30px 80px -20px rgba(0, 0, 0, 0.75),
@@ -373,4 +377,25 @@
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
   }
+}
+
+/*
+  Kore Residences — la barra lateral lleva el acento en DORADO, no en el verde
+  de la marca (verde sobre verde no se lee). `.nav-dark.nav-dark` gana al
+  bloque que inyecta el white-label (`.nav-dark`, ver accentCssVariables).
+*/
+.nav-dark.nav-dark {
+  --accent: #d4b46a;
+  --accent-hover: #c6a55a;
+  --accent-soft: #4f7350;
+  --accent-tint: #0f3d2f;
+  --accent-text: #e6cd8a;
+  --accent-fg: #062b20;
+  --accent-ink: var(--accent-text);
+  --ring: var(--accent);
+}
+
+/* El mosaico de la marca en la barra: dorado como el monograma del logo. */
+.nav-dark .brand-tile {
+  background: linear-gradient(135deg, #dcbe75, #b39352);
 }

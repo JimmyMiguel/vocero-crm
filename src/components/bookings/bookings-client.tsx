@@ -309,7 +309,7 @@ export function BookingsClient({
     return (
       <div className="flex h-full flex-col">
         <header className="border-b px-4 py-3 sm:px-6 sm:py-4">
-          <h2 className="text-[17px] font-bold tracking-tight">Citas</h2>
+          <h2 className="text-[17px] font-bold tracking-tight">Calendario de visitas</h2>
         </header>
         <p className="p-6 text-sm text-text-3">Cargando…</p>
       </div>

@@ -717,6 +717,7 @@ async function advanceLeadStage(
   const stages = await db
     .select({
       id: schema.pipelineStage.id,
+      name: schema.pipelineStage.name,
       position: schema.pipelineStage.position,
       kind: schema.pipelineStage.kind,
     })
@@ -726,7 +727,11 @@ async function advanceLeadStage(
 
   const currentIdx = stages.findIndex((s) => s.id === lead.stageId);
   if (currentIdx < 0) return;
-  const nextOpen = stages.find((s, i) => i > currentIdx && s.kind === "open");
+  // Si hay una etapa "… agendada" más adelante, la cita lleva ahí aunque se
+  // salte etapas (agendar desde "Nuevo contacto" no debe quedar en
+  // "Calificado"). Sin ella, a la siguiente abierta como siempre.
+  const ahead = stages.filter((s, i) => i > currentIdx && s.kind === "open");
+  const nextOpen = ahead.find((s) => /agendad/i.test(s.name)) ?? ahead[0];
   if (!nextOpen) return; // ya está en la última etapa abierta (o en un ancla)
 
   await moveLeadToStage({

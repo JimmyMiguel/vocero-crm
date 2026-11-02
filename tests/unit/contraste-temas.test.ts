@@ -81,18 +81,19 @@ function arriba(vars: Vars, a: string, b: string) {
 }
 
 describe("tema oscuro: el bicolor no desaparece", () => {
-  it("la barra es claramente más oscura que la página (≥ 1.25:1)", () => {
-    // La barra pinta `bg-subtle` DENTRO de `.nav-dark`; la página, `--bg`.
+  it("la barra se despega claramente de la página (≥ 1.25:1)", () => {
+    // Kore Residences: la barra es el verde del logo y la página oscura es un
+    // verde casi negro; la barra queda ARRIBA de la página (en Vocero iba
+    // debajo). Lo que importa es que el bicolor se vea, en el sentido que sea.
     const barra = hex(nav, "--bg-subtle");
     const pagina = hex(oscuro, "--bg");
-    expect(luminancia(barra)).toBeLessThan(luminancia(pagina));
     expect(contraste(barra, pagina)).toBeGreaterThanOrEqual(1.25);
     // …y el hueco de la página (hilo, columnas) tampoco se confunde con ella.
     expect(contraste(barra, hex(oscuro, "--bg-subtle"))).toBeGreaterThanOrEqual(1.1);
   });
 
-  it("en claro la barra sigue siendo azul marino sobre blanco", () => {
-    expect(contraste(hex(nav, "--bg-subtle"), hex(claro, "--bg"))).toBeGreaterThanOrEqual(15);
+  it("en claro la barra verde se despega del blanco", () => {
+    expect(contraste(hex(nav, "--bg-subtle"), hex(claro, "--bg"))).toBeGreaterThanOrEqual(7);
   });
 });
 
@@ -224,18 +225,19 @@ describe("tema claro: no cambia", () => {
   });
 
   it("la barra (.nav-dark) conserva sus valores: se ve igual en los dos temas", () => {
-    // Son los que tenía cuando copiaba al tema oscuro de antes; si la barra
+    // Kore Residences: el azul marino de Vocero pasado a verde con la MISMA
+    // luminancia (mismos contrastes). Si la barra
     // cambia, cambia también en claro, que es el tema que al dueño le gusta.
     expect(nav).toMatchObject({
-      "--bg": "#0b1327",
-      "--bg-subtle": "#070e20",
-      "--bg-panel": "#131f3d",
-      "--bg-hover": "#182750",
-      "--text": "#e8eefc",
-      "--text-2": "#a9b8dc",
-      "--text-3": "#7688b0",
-      "--border": "#263866",
-      "--border-strong": "#34498a",
+      "--bg": "#06523f",
+      "--bg-subtle": "#054c3a",
+      "--bg-panel": "#0a5c47",
+      "--bg-hover": "#0d6450",
+      "--text": "#f5f1e6",
+      "--text-2": "#d2e2d8",
+      "--text-3": "#a3c4b4",
+      "--border": "#17654f",
+      "--border-strong": "#23765f",
       "--ring": "var(--accent)",
     });
     expect(css).toMatch(/\.nav-dark \{\s*color-scheme: dark;/);

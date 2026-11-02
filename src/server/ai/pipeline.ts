@@ -163,7 +163,10 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
     .where(eq(schema.pipelineStage.organizationId, organizationId))
     .orderBy(asc(schema.pipelineStage.position));
 
-  const agenda = agendaEnabled();
+  // AGENT_AGENDA=off: la agenda es del equipo (p. ej. visitas a propiedades)
+  // y el agente no ofrece ni reserva horarios en ella.
+  const agenda =
+    agendaEnabled() && process.env.AGENT_AGENDA?.trim().toLowerCase() !== "off";
   const catalog = await agentCatalog(organizationId);
 
   /**

@@ -1,8 +1,14 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, gte } from "drizzle-orm";
 import { withAuth } from "@/lib/api";
 import { getDb, schema } from "@/lib/db";
 import { scoped } from "@/lib/db/tenant";
 import { getBranding } from "@/server/branding";
+import { dayIsoInTz, labelInTz, todayInTz } from "@/lib/time/slots";
+import { agendaEnabled } from "@/server/agenda/flag";
+import { getSettings } from "@/server/agenda/settings";
+
+/** Una visita que empezó hace menos de esto sigue mostrándose en la tarjeta. */
+const VISITA_VIGENTE_MS = 3 * 3_600_000;
 
 export const dynamic = "force-dynamic";
 
@@ -38,8 +44,50 @@ export const GET = withAuth(async (session) => {
   // necesita saber cuál es la única sumable, sin adivinarla ni pedirla aparte.
   const { currency } = await getBranding(session.organizationId);
 
+  // Con la agenda encendida, cada tarjeta lleva su próxima visita: es lo que
+  // se mira en "Visita agendada" sin abrir el calendario.
+  const agenda = agendaEnabled();
+  const nextVisit = new Map<string, { id: string; startUtc: string; label: string; dayIso: string }>();
+  let today: string | null = null;
+  if (agenda) {
+    const { timezone } = await getSettings(session.organizationId);
+    today = todayInTz(new Date(), timezone);
+    const visitas = await db
+      .select({
+        id: schema.booking.id,
+        contactId: schema.booking.contactId,
+        scheduledAt: schema.booking.scheduledAt,
+      })
+      .from(schema.booking)
+      .where(
+        scoped(
+          schema.booking.organizationId,
+          session.organizationId,
+          and(
+            eq(schema.booking.kind, "session"),
+            eq(schema.booking.status, "agendada"),
+            eq(schema.booking.isTest, false),
+            gte(schema.booking.scheduledAt, new Date(Date.now() - VISITA_VIGENTE_MS))
+          )
+        )
+      )
+      .orderBy(asc(schema.booking.scheduledAt));
+    for (const v of visitas) {
+      if (!v.contactId || nextVisit.has(v.contactId)) continue;
+      const startUtc = v.scheduledAt.toISOString();
+      nextVisit.set(v.contactId, {
+        id: v.id,
+        startUtc,
+        label: labelInTz(startUtc, timezone),
+        dayIso: dayIsoInTz(v.scheduledAt, timezone),
+      });
+    }
+  }
+
   return Response.json({
     currency,
+    agenda,
+    today,
     stages: stages.map((s) => ({
       id: s.id,
       name: s.name,
@@ -60,6 +108,7 @@ export const GET = withAuth(async (session) => {
         phone: r.contact.phone,
       },
       conversationId: r.conversationId,
+      nextVisit: nextVisit.get(r.contact.id) ?? null,
     })),
   });
 });

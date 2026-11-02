@@ -299,14 +299,17 @@ export function BookingDrawer({
  * agendaba la IA) recalculaba la disponibilidad de toda la ventana aunque
  * nadie estuviera reprogramando.
  */
-function Reschedule({
+export function Reschedule({
   today,
   busy,
+  title = "Mover a",
   onCancel,
   onPick,
 }: {
   today: string;
   busy: boolean;
+  /** Encabezado del panel: "Mover a" al reprogramar, otro al agendar. */
+  title?: string;
   onCancel: () => void;
   onPick: (startUtc: string) => void;
 }) {
@@ -342,9 +345,9 @@ function Reschedule({
   const times = days.find(([d]) => d === selected)?.[1] ?? [];
 
   return (
-    <section className="space-y-3 border-b p-4" aria-label="Mover a">
+    <section className="space-y-3 border-b p-4" aria-label={title}>
       <div className="flex items-center justify-between">
-        <p className="kicker">Mover a</p>
+        <p className="kicker">{title}</p>
         <button
           type="button"
           onClick={onCancel}
@@ -359,7 +362,7 @@ function Reschedule({
         <p className="text-sm text-text-3">
           {failed
             ? "No se pudo comprobar la disponibilidad. Intenta de nuevo."
-            : "No hay huecos libres para mover esta cita."}
+            : "No hay horarios libres en la agenda."}
         </p>
       )}
 

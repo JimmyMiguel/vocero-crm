@@ -6,25 +6,30 @@ import { newId } from "@/lib/db/ids";
 type Db = PostgresJsDatabase<typeof schema>;
 
 /**
- * Demo de una inmobiliaria genérica, sin marca: es la vitrina que se enseña
- * en las demos de la campaña. Deja etapas, clientes (casi todos llegados por
- * anuncio) con su conversación, propiedades en el catálogo y marca neutra.
+ * Demo de Kore Residences, una inmobiliaria ficticia: es la vitrina que se
+ * enseña en las demos de la campaña. Deja etapas, clientes (casi todos
+ * llegados por anuncio) con su conversación, propiedades en el catálogo,
+ * visitas en el calendario y la marca (verde y dorado).
  *
  * El agente NO atiende como la inmobiliaria: en esta instancia contesta dudas
  * del CRM y agenda demos. Por eso su perfil y su conocimiento se cargan aparte
  * y aquí solo se vacía el conocimiento anterior. Con AGENT_CATALOG=off las
  * propiedades quedan solo de vitrina.
  *
- * DESTRUCTIVO: borra contactos, conversaciones, catálogo, conocimiento y
- * etapas de la organización. Respáldala antes.
+ * DESTRUCTIVO: borra contactos, conversaciones, citas, catálogo, conocimiento
+ * y etapas de la organización. Respáldala antes. El icono subido se conserva.
  */
 
 const HORA = 3_600_000;
 const DIA = 24 * HORA;
 
-/** Azul acero: preset sobrio de Ajustes → Marca, sin parecerse a ninguna marca. */
-const ACENTO = "#3f5972";
-const NOMBRE = "Inmobiliaria";
+/** Verde del logo de Kore (#054c3a), un punto más claro para los botones. */
+const ACENTO = "#0b5c45";
+const NOMBRE = "Kore Residences";
+
+/** Ecuador no cambia de horario: UTC−5 todo el año. */
+const ZONA = "America/Guayaquil";
+const UTC_OFFSET_H = 5;
 
 const ETAPAS = [
   "Nuevo contacto",
@@ -55,11 +60,16 @@ type Cliente = {
   handoff?: boolean;
   /** El equipo tomó la conversación (IA en pausa). */
   tomada?: boolean;
+  /**
+   * Visita en el calendario. `dia`: días desde hoy (negativo = ya pasó) o
+   * "sabado" (el próximo); `hora` en la zona del negocio.
+   */
+  visita?: { dia: number | "sabado"; hora: string; estado: "agendada" | "realizada" };
   chat: Msg[];
 };
 
 const SALUDO =
-  "¡Hola! 👋 Soy Sofía, asistente virtual de la inmobiliaria. Te ayudo a encontrar casa, departamento o terreno. ¿Buscas comprar o arrendar, y en qué sector?";
+  "¡Hola! 👋 Soy Sofía, asistente virtual de Kore Residences. Te ayudo a encontrar casa, departamento o terreno. ¿Buscas comprar o arrendar, y en qué sector?";
 
 const CLIENTES: Cliente[] = [
   {
@@ -163,8 +173,8 @@ const CLIENTES: Cliente[] = [
       presupuesto: 190000,
       habitaciones: 3,
       financiamiento: "Crédito bancario",
-      visita: "Sábado 10:00",
     },
+    visita: { dia: "sabado", hora: "10:00", estado: "agendada" },
     notas: "Visita confirmada el sábado a las 10:00 con su esposo. Llevar plano y escrituras.",
     chat: [
       { dir: "in", text: "Hola, quiero agendar visita a la casa de Samborondón", h: 26 },
@@ -187,14 +197,14 @@ const CLIENTES: Cliente[] = [
       zona: "Urdesa",
       presupuesto: 700,
       habitaciones: 2,
-      visita: "Mañana 17:30",
     },
+    visita: { dia: 1, hora: "17:00", estado: "agendada" },
     chat: [
       { dir: "in", text: "Hola, el depa de Urdesa todavía se arrienda?", h: 8 },
       { dir: "out", ai: true, text: SALUDO, h: 7.98 },
       { dir: "out", ai: true, text: "¡Sí, Diego! Está disponible: 2 habitaciones, amoblado, $650 + alícuota. ¿Te gustaría verlo?", h: 7.95 },
-      { dir: "in", text: "Sí, mañana después del trabajo, tipo 5:30", h: 7.5 },
-      { dir: "out", ai: true, text: "Agendado mañana a las 17:30 ✅ Te enviamos la ubicación exacta por aquí.", h: 7.48 },
+      { dir: "in", text: "Sí, mañana después del trabajo, tipo 5", h: 7.5 },
+      { dir: "out", ai: true, text: "Agendado mañana a las 17:00 ✅ Te enviamos la ubicación exacta por aquí.", h: 7.48 },
     ],
   },
   {
@@ -214,6 +224,7 @@ const CLIENTES: Cliente[] = [
       financiamiento: "Crédito BIESS",
     },
     notas: "Le gustó el departamento. Pide revisar si el dueño acepta $120.000.",
+    visita: { dia: -3, hora: "11:00", estado: "realizada" },
     chat: [
       { dir: "in", text: "Hola, me refirió mi prima, quiero ver el departamento de Cumbayá", h: 120 },
       { dir: "out", ai: true, text: SALUDO, h: 119.98 },
@@ -240,6 +251,7 @@ const CLIENTES: Cliente[] = [
       financiamiento: "Contado",
     },
     notas: "Ofertó $230.000 de contado. El propietario pide $240.000. Siguiente paso: contraoferta.",
+    visita: { dia: -8, hora: "16:00", estado: "realizada" },
     chat: [
       { dir: "in", text: "Buenas tardes, me interesa la casa de 4 habitaciones en Cumbayá", h: 200 },
       { dir: "out", ai: true, text: SALUDO, h: 199.98 },
@@ -263,6 +275,7 @@ const CLIENTES: Cliente[] = [
       financiamiento: "Contado",
     },
     notas: "Pagó $2.000 de reserva. Firma de promesa de compraventa el jueves.",
+    visita: { dia: -5, hora: "10:00", estado: "realizada" },
     chat: [
       { dir: "in", text: "Quiero separar el terreno de vía a la costa", h: 60 },
       { dir: "out", ai: true, text: SALUDO, h: 59.98 },
@@ -374,6 +387,30 @@ const PROPIEDADES: { name: string; price: string; description: string }[] = [
   },
 ];
 
+/** Instante UTC de un día/hora del negocio (Guayaquil). */
+function instanteLocal(nowMs: number, dia: number | "sabado", hora: string): Date {
+  const local = new Date(nowMs - UTC_OFFSET_H * HORA);
+  let dias: number;
+  if (dia === "sabado") {
+    dias = (6 - local.getUTCDay() + 7) % 7 || 7;
+  } else {
+    dias = dia;
+    // Domingo no se visita: la cita de "mañana" pasa al lunes.
+    const dow = (local.getUTCDay() + dias + 7 * 10) % 7;
+    if (dias > 0 && dow === 0) dias += 1;
+  }
+  const [h, m] = hora.split(":").map(Number) as [number, number];
+  return new Date(
+    Date.UTC(
+      local.getUTCFullYear(),
+      local.getUTCMonth(),
+      local.getUTCDate() + dias,
+      h + UTC_OFFSET_H,
+      m
+    )
+  );
+}
+
 export async function seedInmobiliaria(
   db: Db,
   organizationId: string
@@ -382,6 +419,7 @@ export async function seedInmobiliaria(
 
   await db.transaction(async (tx) => {
     // --- Limpieza (orden inverso de FKs) ---
+    await tx.delete(schema.booking).where(eq(schema.booking.organizationId, organizationId));
     const prev = await tx
       .select({ id: schema.contact.id })
       .from(schema.contact)
@@ -514,7 +552,48 @@ export async function seedInmobiliaria(
         source: "sistema",
         approximate: true,
       });
+
+      if (c.visita) {
+        await tx.insert(schema.booking).values({
+          id: newId("booking"),
+          organizationId,
+          kind: "session",
+          status: c.visita.estado,
+          source: "manual",
+          contactId,
+          conversationId,
+          leadId,
+          scheduledAt: instanteLocal(now, c.visita.dia, c.visita.hora),
+          durationMinutes: 60,
+          connector: "enlace-fijo",
+          notes: c.ficha.zona ? `Visita en ${c.ficha.zona}` : null,
+        });
+      }
     }
+
+    // --- Agenda: visitas de 1 h, lunes a sábado, hora de Ecuador ---
+    const horario = {
+      weeklyHours: {
+        mon: [{ start: "09:00", end: "18:00" }],
+        tue: [{ start: "09:00", end: "18:00" }],
+        wed: [{ start: "09:00", end: "18:00" }],
+        thu: [{ start: "09:00", end: "18:00" }],
+        fri: [{ start: "09:00", end: "18:00" }],
+        sat: [{ start: "09:00", end: "14:00" }],
+      },
+      slotMinutes: 60,
+      bufferMinutes: 0,
+      minNoticeHours: 2,
+      maxDaysAhead: 30,
+      timezone: ZONA,
+      connector: "enlace-fijo",
+      meetingLink: null,
+      updatedAt: new Date(),
+    };
+    await tx
+      .insert(schema.calendarSettings)
+      .values({ id: newId("calendarSettings"), organizationId, ...horario })
+      .onConflictDoUpdate({ target: schema.calendarSettings.organizationId, set: horario });
 
     // --- Propiedades (catálogo de vitrina; las fotos se suben en Catálogo) ---
     for (const p of PROPIEDADES) {
@@ -527,7 +606,7 @@ export async function seedInmobiliaria(
       });
     }
 
-    // --- Marca neutra: sin logo, inicial sobre el acento ---
+    // --- Marca: Kore Residences ---
     const org = await tx
       .select({ metadata: schema.organization.metadata })
       .from(schema.organization)
@@ -539,7 +618,9 @@ export async function seedInmobiliaria(
     } catch {
       meta = {};
     }
-    meta.branding = { name: NOMBRE, accent: ACENTO, currency: "USD", favicon: null };
+    // El icono (monograma) se sube en Ajustes → Marca y sobrevive al seed.
+    const favicon = (meta.branding as { favicon?: unknown } | undefined)?.favicon ?? null;
+    meta.branding = { name: NOMBRE, accent: ACENTO, currency: "USD", favicon };
     await tx
       .update(schema.organization)
       .set({ name: NOMBRE, logo: null, metadata: JSON.stringify(meta) })
