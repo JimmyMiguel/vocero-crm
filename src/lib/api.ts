@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { canConfigure } from "@/lib/auth/roles";
 import { requireSession, UnauthorizedError, type SessionContext } from "@/lib/auth/session";
 
 /** Respuesta de error estándar de la API interna (contrato api.md). */
@@ -34,6 +35,21 @@ export function withAuth<Args extends unknown[]>(
       return apiError(500, "internal", "Error interno");
     }
   };
+}
+
+/**
+ * Como `withAuth`, pero solo para quien configura la instancia (owner/admin):
+ * el agente, su conocimiento y el Laboratorio. Un miembro del equipo → 403.
+ */
+export function withConfigAuth<Args extends unknown[]>(
+  handler: (session: SessionContext, ...args: Args) => Promise<Response>
+): (...args: Args) => Promise<Response> {
+  return withAuth(async (session, ...args: Args) => {
+    if (!canConfigure(session.role)) {
+      return apiError(403, "forbidden", "Solo el administrador puede ver esto");
+    }
+    return handler(session, ...args);
+  });
 }
 
 /** Parsea el body JSON con un esquema Zod; inválido → Response 422. */

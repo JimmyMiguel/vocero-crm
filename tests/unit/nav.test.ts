@@ -16,14 +16,25 @@ const labels = (groups: { items: { label: string }[] }[]) =>
   groups.map((g) => g.items.map((i) => i.label));
 
 describe("barra lateral agrupada", () => {
-  it("con todo apagado y como miembro: Trabajo, Agente y Resultados", () => {
+  it("con todo apagado y como miembro: solo Propiedades en el grupo Agente", () => {
     const groups = appNavGroups({ role: "member" });
     expect(groups.map((g) => g.title)).toEqual(["Trabajo", "Agente", undefined]);
     expect(labels(groups)).toEqual([
       ["Bandeja", "Pipeline", "Contactos"],
-      ["Agente", "Propiedades", "Laboratorio"],
+      ["Propiedades"],
       ["Resultados"],
     ]);
+  });
+
+  it("owner y admin ven Guía, Agente, Propiedades y Laboratorio", () => {
+    for (const role of ["owner", "admin"]) {
+      expect(labels(appNavGroups({ role }))[1]).toEqual([
+        "Guía de inicio",
+        "Agente",
+        "Propiedades",
+        "Laboratorio",
+      ]);
+    }
   });
 
   it("AGENDA añade Citas al final de Trabajo", () => {

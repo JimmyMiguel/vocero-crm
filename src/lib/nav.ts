@@ -67,15 +67,18 @@ export function appNavGroups({
   if (agenda) trabajo.push({ href: "/bookings", label: "Calendario", icon: CalendarDays });
 
   const agente: NavItem[] = [];
-  // Un miembro del equipo no puede hacer ninguno de los pasos de la guía.
+  // Guía, Agente y Laboratorio son de configuración: solo owner/admin. Las
+  // propiedades las carga todo el equipo.
   if (canConfigure(role)) {
-    agente.push({ href: "/onboarding", label: "Guía de inicio", icon: ListChecks });
+    agente.push(
+      { href: "/onboarding", label: "Guía de inicio", icon: ListChecks },
+      { href: "/agent", label: "Agente", icon: Sparkles }
+    );
   }
-  agente.push(
-    { href: "/agent", label: "Agente", icon: Sparkles },
-    { href: "/catalog", label: "Propiedades", icon: House },
-    { href: "/lab", label: "Laboratorio", icon: FlaskConical }
-  );
+  agente.push({ href: "/catalog", label: "Propiedades", icon: House });
+  if (canConfigure(role)) {
+    agente.push({ href: "/lab", label: "Laboratorio", icon: FlaskConical });
+  }
 
   return [
     { title: "Trabajo", items: trabajo },
