@@ -1206,6 +1206,14 @@ export const product = pgTable(
     imageAssetId: text("image_asset_id").references(() => mediaAsset.id, {
       onDelete: "set null",
     }),
+    /**
+     * IDs de anuncio de Meta (el `source_id` del referral de WhatsApp) que
+     * llevan a este producto. Un anuncio pertenece a un solo producto: al
+     * guardarlo aquí se quita de los demás (`server/catalog-ads.ts`). Los pega
+     * el dueño o los conecta solo el agente cuando el texto del anuncio nombra
+     * el producto.
+     */
+    adIds: text("ad_ids").array().notNull().default(sql`'{}'::text[]`),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

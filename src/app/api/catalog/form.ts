@@ -1,3 +1,5 @@
+import { parseAdIds } from "@/server/catalog-ads";
+
 /**
  * Lee los campos del formulario de producto. Un campo ausente no se toca (para
  * editar); uno vacío se borra (null). `name` vacío nunca es válido.
@@ -10,6 +12,7 @@ export function readProductForm(form: FormData):
         price?: string | null;
         description?: string | null;
         stock?: number | null;
+        adIds?: string[];
       };
       image: File | null;
     }
@@ -33,6 +36,20 @@ export function readProductForm(form: FormData):
     }
   }
 
+  // IDs de anuncio de Meta: ausente = no se tocan; vacío = se quitan todos.
+  const adIdsRaw = form.get("adIds");
+  let adIds: string[] | undefined;
+  if (typeof adIdsRaw === "string") {
+    const parsed = parseAdIds(adIdsRaw);
+    if (!parsed.ok) {
+      return {
+        ok: false,
+        message: `«${parsed.bad}» no parece un ID de anuncio: copia el «Identificador del anuncio» (solo números)`,
+      };
+    }
+    adIds = parsed.ids;
+  }
+
   const image = form.get("image");
   return {
     ok: true,
@@ -41,6 +58,7 @@ export function readProductForm(form: FormData):
       price: text("price", 100),
       description: text("description", 2000),
       stock,
+      ...(adIds !== undefined ? { adIds } : {}),
     },
     image: image instanceof File && image.size > 0 ? image : null,
   };
