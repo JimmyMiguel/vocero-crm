@@ -2,6 +2,7 @@ import { apiError, withAuth } from "@/lib/api";
 import { getDb, schema } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
 import { listProducts, saveProductImage } from "@/server/catalog";
+import { reclamarAnuncios } from "@/server/catalog-ads";
 import { MediaValidationError } from "@/server/whatsapp/media";
 import { readProductForm } from "./form";
 
@@ -41,9 +42,12 @@ export const POST = withAuth(async (session, req: Request) => {
       price: fields.data.price ?? null,
       description: fields.data.description ?? null,
       stock: fields.data.stock ?? null,
+      adIds: fields.data.adIds ?? [],
       imageAssetId,
     })
     .returning();
   if (!inserted[0]) return apiError(500, "internal", "No se pudo crear");
+  // Un anuncio pertenece a un solo producto: se le quita a cualquier otro.
+  await reclamarAnuncios(session.organizationId, inserted[0].id, inserted[0].adIds);
   return Response.json({ product: inserted[0] }, { status: 201 });
 });

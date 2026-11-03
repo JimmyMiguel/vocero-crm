@@ -10,6 +10,7 @@ const base: Product = {
   description: "Vitamina C",
   stock: null,
   imageAssetId: "ma_1",
+  adIds: [],
   createdAt: new Date(),
   updatedAt: new Date(),
 };
