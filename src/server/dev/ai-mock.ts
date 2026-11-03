@@ -116,6 +116,45 @@ export function aiMockCompletion(messages: InMessage[]): string {
     });
   }
 
+  /**
+   * automatizate.ec — Catálogo y anuncio de origen, por el camino REAL: el
+   * mock solo sabe del producto si el sistema le pasó el bloque «ORIGEN DEL
+   * CLIENTE» con su id, igual que un modelo de verdad.
+   */
+  const catalogoEnseñado = messages.some(
+    (m) => m.role === "system" && m.content.includes('"action":"send_product"')
+  );
+  const origen = messages
+    .filter((m) => m.role === "system" && m.content.includes("ORIGEN DEL CLIENTE"))
+    .map((m) => m.content)
+    .join("\n");
+  const productoDelOrigen = origen.match(/\[(prd_[A-Za-z0-9_-]+)\]/)?.[1] ?? null;
+  const pideFoto = /foto|imagen|imágenes|verla|verlo/.test(text);
+  if (catalogoEnseñado && productoDelOrigen) {
+    if (origen.includes("YA NO ESTÁ DISPONIBLE")) {
+      return JSON.stringify({
+        action: "reply",
+        text: "Esa propiedad ya se vendió, pero tengo otras opciones disponibles para ti.",
+      });
+    }
+    const yaEnviada = messages.some(
+      (m) => m.role === "assistant" && m.content.startsWith("[Foto enviada]")
+    );
+    if (pideFoto || !yaEnviada) {
+      return JSON.stringify({
+        action: "send_product",
+        product: productoDelOrigen,
+        caption: "Esta es la propiedad del anuncio.",
+      });
+    }
+  }
+  if (catalogoEnseñado && origen.includes("no está conectado") && !productoDelOrigen) {
+    return JSON.stringify({
+      action: "reply",
+      text: "¡Hola! ¿Cuál de nuestras propiedades te interesa?",
+    });
+  }
+
   // Persona pide_humano (el regex de respaldo captura la frase canónica; esta
   // rama cubre variantes que llegan al modelo).
   if (text.includes("humano") || text.includes("asesor")) {

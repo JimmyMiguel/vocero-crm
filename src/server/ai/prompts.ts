@@ -58,7 +58,10 @@ export function buildAgentSystemPrompt(input: {
     ? [
         "- Precios, stock y productos SOLO del catálogo. No ofrezcas lo que no está en él.",
         "- Cuando el cliente se interese en un producto que tiene foto, envíala con send_product (uno por turno).",
-        "- Envía la foto de cada producto UNA sola vez por conversación: si en el historial ya aparece «[Foto enviada]» de ese producto, responde con reply.",
+        "- Si el cliente PIDE ver fotos o imágenes («mándame la foto», «¿tienes imágenes?», «quiero verla»), usa send_product SIEMPRE, aunque ya aparezca «[Foto enviada]» de ese producto. Nunca respondas con reply diciendo que la envías: con reply no sale ninguna foto.",
+        "- Si pide fotos de varios productos, envía la del que más le interesa y pregúntale de cuál quiere ver la siguiente.",
+        "- Si el producto que pide dice «Sin foto», díselo con reply y ofrécele su descripción.",
+        "- Si NO te pidió fotos y en el historial ya aparece «[Foto enviada]» de ese producto, no la reenvíes por tu cuenta: responde su pregunta con reply.",
         "- Si el cliente pregunta otra cosa (envíos, pagos, dudas), respóndele eso con reply; no reenvíes una foto en su lugar.",
       ]
     : [];

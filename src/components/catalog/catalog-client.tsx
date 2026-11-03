@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ImageIcon, Pencil, Plus, Trash2 } from "lucide-react";
+import { ImageIcon, Megaphone, Pencil, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,11 +16,20 @@ type Product = {
   description: string | null;
   stock: number | null;
   imageAssetId: string | null;
+  adIds: string[];
 };
 
-type Draft = { name: string; price: string; description: string; stock: string };
+/** Un anuncio del que ya llegaron clientes (`/api/catalog/ads`). */
+type RecentAd = { sourceId: string; headline: string | null; conversaciones: number };
 
-const EMPTY: Draft = { name: "", price: "", description: "", stock: "" };
+type Draft = { name: string; price: string; description: string; stock: string; adIds: string };
+
+const EMPTY: Draft = { name: "", price: "", description: "", stock: "", adIds: "" };
+
+/** Los IDs escritos en el campo, en orden y sin repetir. */
+function idsDelCampo(texto: string): string[] {
+  return [...new Set(texto.split(/[\s,;]+/).map((t) => t.trim()).filter(Boolean))];
+}
 
 /**
  * Catálogo (automatizate.ec): los productos que el agente conoce y cuya foto
@@ -29,9 +38,15 @@ const EMPTY: Draft = { name: "", price: "", description: "", stock: "" };
 export function CatalogClient() {
   const [products, setProducts] = useState<Product[] | null>(null);
 
+  const [ads, setAds] = useState<RecentAd[]>([]);
+
   const refetch = useCallback(async () => {
-    const res = await fetch("/api/catalog").catch(() => null);
+    const [res, adsRes] = await Promise.all([
+      fetch("/api/catalog").catch(() => null),
+      fetch("/api/catalog/ads").catch(() => null),
+    ]);
     if (res?.ok) setProducts((await res.json()).products);
+    if (adsRes?.ok) setAds((await adsRes.json()).ads);
   }, []);
 
   useEffect(() => {
@@ -62,6 +77,8 @@ export function CatalogClient() {
         <ProductForm
           key={editing?.id ?? "nuevo"}
           editing={editing}
+          ads={ads}
+          products={products ?? []}
           onDone={() => {
             setEditing(null);
             void refetch();
@@ -103,6 +120,12 @@ export function CatalogClient() {
                       ) : null}
                     </div>
                     {p.price && <p className="text-sm font-semibold text-primary">{p.price}</p>}
+                    {p.adIds.length > 0 && (
+                      <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Megaphone className="h-3.5 w-3.5" />
+                        {p.adIds.length === 1 ? "1 anuncio conectado" : `${p.adIds.length} anuncios conectados`}
+                      </p>
+                    )}
                     {p.description && (
                       <p className="line-clamp-3 text-xs text-muted-foreground">{p.description}</p>
                     )}
@@ -137,10 +160,14 @@ export function CatalogClient() {
 
 function ProductForm({
   editing,
+  ads,
+  products,
   onDone,
   onCancel,
 }: {
   editing: Product | null;
+  ads: RecentAd[];
+  products: Product[];
   onDone: () => void;
   onCancel: () => void;
 }) {
@@ -151,6 +178,7 @@ function ProductForm({
           price: editing.price ?? "",
           description: editing.description ?? "",
           stock: editing.stock === null ? "" : String(editing.stock),
+          adIds: editing.adIds.join("\n"),
         }
       : EMPTY
   );
@@ -176,6 +204,7 @@ function ProductForm({
     form.set("price", draft.price);
     form.set("description", draft.description);
     form.set("stock", draft.stock);
+    form.set("adIds", draft.adIds);
     if (image) form.set("image", image);
     const res = await fetch(editing ? `/api/catalog/${editing.id}` : "/api/catalog", {
       method: editing ? "PATCH" : "POST",
@@ -254,6 +283,13 @@ function ProductForm({
             placeholder="Para qué sirve, tipo de piel, modo de uso…"
           />
         </div>
+        <AdIdsField
+          value={draft.adIds}
+          onChange={(adIds) => setDraft((d) => ({ ...d, adIds }))}
+          ads={ads}
+          products={products}
+          editingId={editing?.id ?? null}
+        />
         {error && <p className="text-sm text-destructive">{error}</p>}
         <div className="flex gap-2">
           <Button onClick={() => void save()} disabled={!draft.name.trim() || saving}>
@@ -267,5 +303,73 @@ function ProductForm({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Los anuncios de Meta que llevan a este producto. Se pega el «Identificador
+ * del anuncio» o se toca uno de los anuncios de los que ya llegaron clientes.
+ */
+function AdIdsField({
+  value,
+  onChange,
+  ads,
+  products,
+  editingId,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  ads: RecentAd[];
+  products: Product[];
+  editingId: string | null;
+}) {
+  const actuales = idsDelCampo(value);
+  const duenoDe = (sourceId: string) =>
+    products.find((p) => p.id !== editingId && p.adIds.includes(sourceId)) ?? null;
+  const sugeridos = ads.filter((a) => !actuales.includes(a.sourceId)).slice(0, 8);
+
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor="p-ads">IDs de anuncios de Meta</Label>
+      <Textarea
+        id="p-ads"
+        rows={2}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="120212345678900000"
+        className="font-mono text-xs"
+      />
+      <p className="text-xs text-muted-foreground">
+        Copia el «Identificador del anuncio» en el Administrador de anuncios (no el de la campaña
+        ni el del conjunto). Quien escriba desde ese anuncio llega conectado a este producto. Si
+        no lo pegas, el agente lo conecta solo cuando el anuncio nombra el producto.
+      </p>
+      {sugeridos.length > 0 && (
+        <div className="space-y-1 pt-1">
+          <p className="text-xs font-medium">Anuncios de los que ya te escribieron</p>
+          <ul className="flex flex-wrap gap-1.5">
+            {sugeridos.map((a) => {
+              const dueno = duenoDe(a.sourceId);
+              return (
+                <li key={a.sourceId}>
+                  <button
+                    type="button"
+                    onClick={() => onChange([...actuales, a.sourceId].join("\n"))}
+                    className="max-w-full rounded-full border px-2.5 py-1 text-left text-xs hover:border-brand"
+                    title={`ID ${a.sourceId}`}
+                  >
+                    <span className="font-medium">+ {a.headline ?? "Anuncio sin título"}</span>
+                    <span className="text-muted-foreground">
+                      {" "}· {a.conversaciones} {a.conversaciones === 1 ? "chat" : "chats"}
+                      {dueno ? ` · ahora en ${dueno.name}` : ""}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+    </div>
   );
 }

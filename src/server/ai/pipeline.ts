@@ -15,6 +15,7 @@ import {
   readProductImage,
   renderCatalog,
 } from "@/server/catalog";
+import { contextoDelAnuncioParaElTurno } from "@/server/catalog-ads";
 import {
   agentActionSchema,
   degradeAction,
@@ -169,7 +170,15 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
     .orderBy(asc(schema.pipelineStage.position));
 
   const agenda = agendaEnabled();
-  const catalog = renderCatalog(await listProducts(organizationId));
+  const products = await listProducts(organizationId);
+  const catalog = renderCatalog(products);
+  // automatizate.ec — De qué anuncio llegó el cliente y a qué producto lleva.
+  const origenDelAnuncio = await contextoDelAnuncioParaElTurno({
+    organizationId,
+    conversationId,
+    contactId: conversation.contactId,
+    products,
+  });
 
   /**
    * 015 — Los huecos vigentes, con su instante exacto.
@@ -216,6 +225,9 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
      */
     ...(mapaDeHuecos
       ? [{ role: "system" as const, content: mapaDeHuecos }]
+      : []),
+    ...(origenDelAnuncio
+      ? [{ role: "system" as const, content: origenDelAnuncio }]
       : []),
   ];
 
@@ -386,14 +398,28 @@ async function deliverProduct(
   caption: string | undefined
 ): Promise<boolean> {
   const product = await getProduct(conversation.organizationId, productId.trim());
-  if (!product?.imageAssetId) return false;
+  if (!product) {
+    console.error(`[agente] send_product con un producto que no existe: ${productId}`);
+    return false;
+  }
+  if (!product.imageAssetId) {
+    console.error(`[agente] send_product de «${product.name}», que no tiene foto`);
+    return false;
+  }
   const text = caption?.trim() || product.name;
   if (conversation.isTest) {
     await persistTestOutbound(conversation, `[Foto: ${product.name}] ${text}`);
     return true;
   }
   const file = await readProductImage(conversation.organizationId, product);
-  if (!file) return false;
+  if (!file) {
+    // La fila existe pero el archivo no: casi siempre un MEDIA_DIR sin volumen
+    // persistente que se vació al redesplegar. Hay que volver a subir la foto.
+    console.error(
+      `[agente] la foto de «${product.name}» no está en el disco (${product.imageAssetId}); revisa que MEDIA_DIR sea un volumen persistente`
+    );
+    return false;
+  }
   try {
     await sendMediaMessage({
       conversationId: conversation.id,

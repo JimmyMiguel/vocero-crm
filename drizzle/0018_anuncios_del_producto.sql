@@ -1,0 +1,1 @@
+ALTER TABLE "product" ADD COLUMN "ad_ids" text[] DEFAULT '{}'::text[] NOT NULL;

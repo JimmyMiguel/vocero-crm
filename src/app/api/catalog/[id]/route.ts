@@ -3,6 +3,7 @@ import { apiError, withAuth } from "@/lib/api";
 import { getDb, schema } from "@/lib/db";
 import { scoped } from "@/lib/db/tenant";
 import { getProduct, saveProductImage } from "@/server/catalog";
+import { reclamarAnuncios } from "@/server/catalog-ads";
 import { MediaValidationError } from "@/server/whatsapp/media";
 import { readProductForm } from "../form";
 
@@ -40,6 +41,10 @@ export const PATCH = withAuth(async (session, req: Request, ctx: Params) => {
       scoped(schema.product.organizationId, session.organizationId, eq(schema.product.id, id))
     )
     .returning();
+  // Un anuncio pertenece a un solo producto: se le quita a cualquier otro.
+  if (updated[0] && fields.data.adIds) {
+    await reclamarAnuncios(session.organizationId, id, fields.data.adIds);
+  }
   return Response.json({ product: updated[0] });
 });
 
