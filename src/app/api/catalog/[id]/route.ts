@@ -8,6 +8,7 @@ import {
   MAX_PRODUCT_IMAGES,
   updateProductImages,
 } from "@/server/catalog";
+import { reclamarAnuncios } from "@/server/catalog-ads";
 import { readProductForm } from "../form";
 import { saveImages } from "../images";
 
@@ -44,6 +45,10 @@ export const PATCH = withAuth(async (session, req: Request, ctx: Params) => {
     .where(
       scoped(schema.product.organizationId, session.organizationId, eq(schema.product.id, id))
     );
+  // Un anuncio pertenece a un solo producto: se le quita a cualquier otro.
+  if (fields.data.adIds) {
+    await reclamarAnuncios(session.organizationId, id, fields.data.adIds);
+  }
   await updateProductImages(session.organizationId, id, {
     add: saved,
     remove: fields.removeImages,

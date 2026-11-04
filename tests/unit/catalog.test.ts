@@ -22,6 +22,7 @@ const base: Product = {
   features: null,
   locationUrl: null,
   status: "disponible",
+  adIds: [],
   createdAt: new Date(),
   updatedAt: new Date(),
 };

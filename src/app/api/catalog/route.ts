@@ -7,6 +7,7 @@ import {
   MAX_PRODUCT_IMAGES,
   updateProductImages,
 } from "@/server/catalog";
+import { reclamarAnuncios } from "@/server/catalog-ads";
 import { readProductForm } from "./form";
 import { saveImages } from "./images";
 
@@ -36,6 +37,10 @@ export const POST = withAuth(async (session, req: Request) => {
     .insert(schema.product)
     .values({ ...fields.data, name: fields.data.name, id, organizationId: session.organizationId });
   if (saved.length) await updateProductImages(session.organizationId, id, { add: saved });
+  // Un anuncio pertenece a un solo producto: se le quita a cualquier otro.
+  if (fields.data.adIds?.length) {
+    await reclamarAnuncios(session.organizationId, id, fields.data.adIds);
+  }
 
   const product = await getProduct(session.organizationId, id);
   if (!product) return apiError(500, "internal", "No se pudo crear");

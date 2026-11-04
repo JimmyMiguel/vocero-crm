@@ -1,3 +1,4 @@
+import { parseAdIds } from "@/server/catalog-ads";
 import { PRODUCT_OPERATIONS, PRODUCT_STATUSES } from "@/server/catalog";
 
 export type ProductFormData = {
@@ -17,6 +18,7 @@ export type ProductFormData = {
   features?: string | null;
   locationUrl?: string | null;
   status?: string;
+  adIds?: string[];
 };
 
 /**
@@ -87,6 +89,19 @@ export function readProductForm(form: FormData):
   const single = form.get("image");
   if (single instanceof File && single.size > 0) images.push(single);
 
+  // IDs de anuncio de Meta: ausente = no se tocan; vacío = se quitan todos.
+  const adIdsRaw = form.get("adIds");
+  let adIds: string[] | undefined;
+  if (typeof adIdsRaw === "string") {
+    const parsed = parseAdIds(adIdsRaw);
+    if (!parsed.ok) {
+      return {
+        ok: false,
+        message: `«${parsed.bad}» no parece un ID de anuncio: copia el «Identificador del anuncio» (solo números)`,
+      };
+    }
+    adIds = parsed.ids;
+  }
   return {
     ok: true,
     data: {
@@ -107,6 +122,7 @@ export function readProductForm(form: FormData):
       locationUrl,
       // El estado nunca queda vacío: vacío = disponible.
       status: status === undefined ? undefined : (status ?? "disponible"),
+      ...(adIds !== undefined ? { adIds } : {}),
     },
     images,
     removeImages: form.getAll("removeImages").filter((v): v is string => typeof v === "string"),

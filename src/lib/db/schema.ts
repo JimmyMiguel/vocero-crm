@@ -1228,6 +1228,14 @@ export const product = pgTable(
     locationUrl: text("location_url"),
     /** disponible | reservado | vendido | arrendado. El agente solo ofrece "disponible". */
     status: text("status").notNull().default("disponible"),
+    /**
+     * IDs de anuncio de Meta (el `source_id` del referral de WhatsApp) que
+     * llevan a este producto. Un anuncio pertenece a un solo producto: al
+     * guardarlo aquí se quita de los demás (`server/catalog-ads.ts`). Los pega
+     * el dueño o los conecta solo el agente cuando el texto del anuncio nombra
+     * el producto.
+     */
+    adIds: text("ad_ids").array().notNull().default(sql`'{}'::text[]`),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

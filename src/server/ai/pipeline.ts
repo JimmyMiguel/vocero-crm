@@ -13,8 +13,10 @@ import {
   AGENT_PHOTOS_PER_SEND,
   agentCatalog,
   getProduct,
+  listProducts,
   readProductImages,
 } from "@/server/catalog";
+import { contextoDelAnuncioParaElTurno } from "@/server/catalog-ads";
 import {
   agentActionSchema,
   degradeAction,
@@ -173,6 +175,14 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
   const agenda =
     agendaEnabled() && process.env.AGENT_AGENDA?.trim().toLowerCase() !== "off";
   const catalog = await agentCatalog(organizationId);
+  const products = await listProducts(organizationId);
+  // automatizate.ec — De qué anuncio llegó el cliente y a qué producto lleva.
+  const origenDelAnuncio = await contextoDelAnuncioParaElTurno({
+    organizationId,
+    conversationId,
+    contactId: conversation.contactId,
+    products,
+  });
 
   /**
    * 015 — Los huecos vigentes, con su instante exacto.
@@ -219,6 +229,9 @@ export async function runAgentTurn(conversationId: string): Promise<void> {
      */
     ...(mapaDeHuecos
       ? [{ role: "system" as const, content: mapaDeHuecos }]
+      : []),
+    ...(origenDelAnuncio
+      ? [{ role: "system" as const, content: origenDelAnuncio }]
       : []),
   ];
 
@@ -389,7 +402,14 @@ async function deliverProduct(
   caption: string | undefined
 ): Promise<boolean> {
   const product = await getProduct(conversation.organizationId, productId.trim());
-  if (!product?.imageAssetId) return false;
+  if (!product) {
+    console.error(`[agente] send_product con un producto que no existe: ${productId}`);
+    return false;
+  }
+  if (!product.imageAssetId) {
+    console.error(`[agente] send_product de «${product.name}», que no tiene foto`);
+    return false;
+  }
   const text = caption?.trim() || product.name;
   if (conversation.isTest) {
     await persistTestOutbound(conversation, `[Foto: ${product.name}] ${text}`);
@@ -400,7 +420,14 @@ async function deliverProduct(
     product,
     AGENT_PHOTOS_PER_SEND
   );
-  if (files.length === 0) return false;
+  if (files.length === 0) {
+    // La fila existe pero el archivo no: casi siempre un MEDIA_DIR sin volumen
+    // persistente que se vació al redesplegar. Hay que volver a subir la foto.
+    console.error(
+      `[agente] las fotos de «${product.name}» no están en el disco; revisa que MEDIA_DIR sea un volumen persistente`
+    );
+    return false;
+  }
   try {
     // Varias fotos (p. ej. una propiedad): el texto va solo en la primera.
     for (const [i, file] of files.entries()) {
