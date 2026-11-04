@@ -1261,3 +1261,28 @@ export const productImage = pgTable(
   },
   (t) => [index("product_image_product_idx").on(t.productId, t.position)]
 );
+
+/**
+ * Dispositivos que aceptaron notificaciones push (una fila por navegador o
+ * teléfono). `endpoint` es único: el mismo dispositivo no se duplica.
+ */
+export const pushSubscription = pgTable(
+  "push_subscription",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("push_subscription_endpoint_uq").on(t.endpoint),
+    index("push_subscription_org_idx").on(t.organizationId),
+  ]
+);

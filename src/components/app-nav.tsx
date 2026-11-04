@@ -11,6 +11,7 @@ import { appNavGroups, isNavActive, SETTINGS_ITEM, type NavItem } from "@/lib/na
 import { signOut } from "@/lib/auth/client";
 import { useEvents } from "@/components/use-events";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { PushToggle } from "@/components/push-toggle";
 import { BrandLogo } from "@/components/brand-mark";
 import {
   BUILD_COMMIT,
@@ -183,6 +184,7 @@ export function AppNav({
             {role === "owner" ? "Propietario" : "Equipo"} · En línea
           </span>
         </span>
+        <PushToggle />
         <ThemeToggle initial={theme} />
         <button
           aria-label="Cerrar sesión"
