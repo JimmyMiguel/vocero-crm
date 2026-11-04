@@ -19,7 +19,6 @@ export async function GET(req: Request) {
   const params = new URL(req.url).searchParams;
   const requested = Number(params.get("size"));
   const size = SIZES.has(requested) ? requested : 512;
-  const maskable = params.get("maskable") === "1";
 
   const ctx = await getBrandingContext().catch(() => null);
   const branding = ctx?.branding ?? DEFAULT_BRANDING;
@@ -35,7 +34,9 @@ export async function GET(req: Request) {
     }
   }
 
-  const inner = Math.round(size * (maskable ? 0.52 : 0.7));
+  // Con logo subido ocupa todo el icono (sin marco de otro verde). La inicial
+  // generada sí lleva margen extra si es maskable.
+  const inner = size;
   const image = new ImageResponse(
     (
       <div
@@ -53,7 +54,7 @@ export async function GET(req: Request) {
       >
         {logo ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={logo} width={inner} height={inner} alt="" style={{ objectFit: "contain" }} />
+          <img src={logo} width={inner} height={inner} alt="" style={{ objectFit: "cover" }} />
         ) : (
           faviconInitial(branding.name)
         )}
