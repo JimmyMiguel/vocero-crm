@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { UserPlus } from "lucide-react";
+import { Trash2, UserPlus } from "lucide-react";
 import { ContactAvatar } from "@/components/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,6 +45,24 @@ export function TeamClient() {
     setTempPassword(
       Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("")
     );
+  }
+
+  async function remove(member: Member) {
+    if (!window.confirm(`¿Quitar a ${member.name} del equipo? Ya no podrá entrar al CRM.`)) return;
+    setError(null);
+    const res = await fetch("/api/settings/team", {
+      method: "DELETE",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id: member.id }),
+    }).catch(() => null);
+    if (!res?.ok) {
+      const data = (await res?.json().catch(() => null)) as {
+        error?: { message?: string };
+      } | null;
+      setError(data?.error?.message ?? "No se pudo quitar al miembro");
+      return;
+    }
+    void refetch();
   }
 
   async function create() {
@@ -156,6 +174,16 @@ export function TeamClient() {
             <Badge variant={m.role === "owner" ? "default" : "secondary"}>
               {m.role === "owner" ? "Propietario" : "Miembro"}
             </Badge>
+            {m.role !== "owner" && (
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={`Quitar a ${m.name}`}
+                onClick={() => void remove(m)}
+              >
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            )}
           </div>
         ))}
       </div>

@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { z } from "zod";
 import { apiError, parseBody, withAuth } from "@/lib/api";
 import { getAuth, runInternalSignup } from "@/lib/auth";
@@ -80,4 +80,53 @@ export const POST = withAuth(async (session, req: Request) => {
     .onConflictDoNothing();
 
   return Response.json({ ok: true }, { status: 201 });
+});
+
+const deleteSchema = z.object({ id: z.string().min(1) });
+
+/**
+ * Quitar a alguien del equipo (owner only). No se puede borrar al propietario
+ * ni a uno mismo. Se borra su membresía y, si no pertenece a otra
+ * organización, también su cuenta (sesiones y credenciales caen en cascada).
+ */
+export const DELETE = withAuth(async (session, req: Request) => {
+  if (session.role !== "owner") {
+    return apiError(403, "forbidden", "Solo el propietario puede quitar miembros");
+  }
+  const body = await parseBody(req, deleteSchema);
+  if (!body.ok) return body.response;
+
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: schema.member.id,
+      role: schema.member.role,
+      userId: schema.member.userId,
+    })
+    .from(schema.member)
+    .where(scoped(schema.member.organizationId, session.organizationId, eq(schema.member.id, body.data.id)));
+  const target = rows[0];
+  if (!target) {
+    return apiError(404, "not_found", "Miembro no encontrado");
+  }
+  if (target.role === "owner") {
+    return apiError(422, "invalid", "No se puede quitar al propietario");
+  }
+  if (target.userId === session.userId) {
+    return apiError(422, "invalid", "No puedes quitarte a ti mismo");
+  }
+
+  await db
+    .delete(schema.member)
+    .where(scoped(schema.member.organizationId, session.organizationId, eq(schema.member.id, target.id)));
+
+  const others = await db
+    .select({ id: schema.member.id })
+    .from(schema.member)
+    .where(and(eq(schema.member.userId, target.userId), ne(schema.member.id, target.id)));
+  if (others.length === 0) {
+    await db.delete(schema.user).where(eq(schema.user.id, target.userId));
+  }
+
+  return Response.json({ ok: true });
 });

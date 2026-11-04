@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
 import { Archivo, IBM_Plex_Mono, Instrument_Serif } from "next/font/google";
-import { accentCssVariables, DEFAULT_BRANDING } from "@/lib/branding";
-import { faviconHref } from "@/lib/favicon";
+import { PwaRegister } from "@/components/pwa-register";
+import { accentCssVariables, DEFAULT_BRANDING, resolveAccentSet } from "@/lib/branding";
+import { faviconCacheKey, faviconHref } from "@/lib/favicon";
 import { normalizeThemePreference, THEME_COOKIE } from "@/lib/theme";
 import { getBranding } from "@/server/branding";
 import "./globals.css";
@@ -37,8 +38,18 @@ export async function generateMetadata(): Promise<Metadata> {
     description: "CRM de WhatsApp con agente de IA y Laboratorio de auto-evaluación",
     // El `?v=` cambia con la marca: los navegadores guardan el favicon con una
     // insistencia notable y, sin eso, el logo nuevo tarda días en aparecer.
-    icons: { icon: faviconHref(branding) },
+    icons: {
+      icon: faviconHref(branding),
+      // iPhone ignora el manifiesto para el icono: necesita un PNG aquí.
+      apple: `/api/branding/pwa-icon?size=180&v=${faviconCacheKey(branding)}`,
+    },
+    appleWebApp: { capable: true, title: branding.name, statusBarStyle: "default" },
   };
+}
+
+export async function generateViewport(): Promise<Viewport> {
+  const branding = await getBranding().catch(() => DEFAULT_BRANDING);
+  return { themeColor: resolveAccentSet(branding.accent).accent };
 }
 
 export default async function RootLayout({
@@ -62,7 +73,10 @@ export default async function RootLayout({
           dangerouslySetInnerHTML={{ __html: accentCssVariables(branding.accent) }}
         />
       </head>
-      <body className="font-sans">{children}</body>
+      <body className="font-sans">
+        {children}
+        <PwaRegister />
+      </body>
     </html>
   );
 }
