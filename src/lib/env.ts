@@ -20,6 +20,10 @@ export const envSchema = z.object({
     }),
   META_WEBHOOK_VERIFY_TOKEN: z.string().min(8),
   META_APP_SECRET: z.string().optional(),
+  // Notificaciones push (claves VAPID: `npx web-push generate-vapid-keys`).
+  VAPID_PUBLIC_KEY: z.string().optional(),
+  VAPID_PRIVATE_KEY: z.string().optional(),
+  VAPID_SUBJECT: z.string().optional(),
   META_GRAPH_API_VERSION: z.string().default("v25.0"),
   META_GRAPH_BASE_URL: z.string().url().default("https://graph.facebook.com"),
   OPENROUTER_API_TOKEN: z.string().optional(),

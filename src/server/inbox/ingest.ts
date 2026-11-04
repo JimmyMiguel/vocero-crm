@@ -1,3 +1,4 @@
+import { notifyOrganization } from "@/server/push";
 import { and, eq, sql } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
@@ -522,6 +523,14 @@ export async function ingestInboundMessage(input: {
   publish(organizationId, {
     type: "conversation.updated",
     data: { conversation: { id: conversation.id } },
+  });
+
+  // Aviso push a los dispositivos del equipo. Sin await: no retrasa al agente.
+  void notifyOrganization(organizationId, {
+    title: contact.name || "Nuevo mensaje",
+    body: input.text?.slice(0, 140) || "Te envió un archivo",
+    url: `/inbox?contact=${contact.id}`,
+    tag: conversation.id,
   });
 
   await maybeRunAgentTurn(conversation.id, organizationId);
