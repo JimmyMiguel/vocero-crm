@@ -141,6 +141,13 @@
       "when": 1793751273925,
       "tag": "0019_anuncios_del_producto",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1793813892789,
+      "tag": "0020_notificaciones_push",
+      "breakpoints": true
     }
   ]
 }

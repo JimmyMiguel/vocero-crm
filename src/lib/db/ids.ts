@@ -36,6 +36,8 @@ const prefixes = {
   // catálogo de productos (automatizate.ec)
   product: "prd",
   productImage: "pim",
+  // notificaciones push web
+  pushSubscription: "psub",
 } as const;
 
 export type IdKind = keyof typeof prefixes;
