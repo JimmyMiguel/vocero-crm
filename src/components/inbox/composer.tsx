@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import type { ConversationDto, TemplateDto } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { formatBytes, formatRemaining } from "./helpers";
+import { formatBytes } from "./helpers";
 import { TemplateSender } from "./template-sender";
 
 /** 008 — Panel secundario del clip: formulario de ubicación o contacto. */
@@ -413,9 +413,6 @@ export function Composer({
       </div>
       <div className="mt-1.5 flex items-center justify-between">
         {error ? <p className="text-xs text-destructive">{error}</p> : <span />}
-        <p className="font-mono text-[10.5px] tracking-[0.04em] text-text-3">
-          Ventana abierta · quedan {formatRemaining(conversation.windowRemainingMs)}
-        </p>
       </div>
     </div>
   );
